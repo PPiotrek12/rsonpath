@@ -3,10 +3,12 @@ mod array_transition_set;
 pub mod error;
 mod minimizer;
 mod nfa;
+mod product;
 mod small_set;
 mod state;
 
 pub use state::{State, StateAttributes};
+pub use product::has_nonempty_intersection_of_symmetric_difference;
 
 use crate::{automaton::error::CompilerError, debug, string_pattern::StringPattern};
 use nfa::NondeterministicAutomaton;
