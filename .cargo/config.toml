@@ -1,4 +1,4 @@
-[target.'cfg(target_os = "linux")']
+[build]
 rustflags = ["-C", "link-arg=-fuse-ld=lld"]
 
 [target.aarch64-unknown-linux-gnu]

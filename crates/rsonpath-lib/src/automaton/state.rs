@@ -177,6 +177,13 @@ pub struct State(
     pub(super) u8,
 );
 
+impl State {
+    #[inline(always)]
+    pub(crate) fn new(id: u8) -> Self {
+        Self(id)
+    }
+}
+
 impl Display for State {
     #[inline]
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {

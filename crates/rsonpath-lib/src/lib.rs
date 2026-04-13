@@ -151,6 +151,7 @@ mod depth;
 pub mod engine;
 pub mod error;
 pub mod input;
+pub mod query_rewrite;
 pub mod result;
 pub(crate) mod string_pattern;
 

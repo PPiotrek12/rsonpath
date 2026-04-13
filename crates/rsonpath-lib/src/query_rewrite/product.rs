@@ -1,5 +1,7 @@
-use super::{ArrayTransition, ArrayTransitionLabel, Automaton, SimpleSlice, State, StateTable};
-use crate::StringPattern;
+use crate::{
+    automaton::{ArrayTransition, ArrayTransitionLabel, Automaton, State, StateTable},
+    StringPattern,
+};
 use std::collections::{HashSet, VecDeque};
 use std::sync::Arc;
 
@@ -174,17 +176,18 @@ fn array_scan_limit<const N: usize>(transition_sets: [&[ArrayTransition]; N]) ->
 }
 
 fn update_scan_parameters(transition: &ArrayTransition, max_boundary: &mut u64, period: &mut u64) {
-    match transition.label {
+    match transition.label() {
         ArrayTransitionLabel::Index(index) => {
             *max_boundary = (*max_boundary).max(index.as_u64());
         }
-        ArrayTransitionLabel::Slice(SimpleSlice { start, end, step }) => {
-            *max_boundary = (*max_boundary).max(start.as_u64());
+        ArrayTransitionLabel::Slice(slice) => {
+            *max_boundary = (*max_boundary).max(slice.start().as_u64());
+            let end = slice.end();
             if let Some(end) = end {
                 *max_boundary = (*max_boundary).max(end.as_u64());
             }
-            if step.as_u64() > 0 {
-                *period = lcm(*period, step.as_u64());
+            if slice.step().as_u64() > 0 {
+                *period = lcm(*period, slice.step().as_u64());
             }
         }
     }
@@ -275,44 +278,42 @@ mod tests {
     fn document_schema_automaton() -> Automaton {
         let content_to_item = ArrayTransition::new(
             ArrayTransitionLabel::Slice(SimpleSlice::new(0.into(), None, 1.into())),
-            State(3),
+            State::new(3),
         );
         let cast_to_person = ArrayTransition::new(
             ArrayTransitionLabel::Slice(SimpleSlice::new(0.into(), None, 1.into())),
-            State(5),
+            State::new(5),
         );
 
-        Automaton {
-            states: vec![
-                state_table(vec![], vec![], State(0), StateAttributes::REJECTING),
+        Automaton::from_states(vec![
+                state_table(vec![], vec![], State::new(0), StateAttributes::REJECTING),
                 state_table(
-                    vec![member("content", State(2))],
+                    vec![member("content", State::new(2))],
                     vec![],
-                    State(0),
+                    State::new(0),
                     StateAttributes::ACCEPTING,
                 ),
-                state_table(vec![], vec![content_to_item], State(0), StateAttributes::ACCEPTING),
+                state_table(vec![], vec![content_to_item], State::new(0), StateAttributes::ACCEPTING),
                 state_table(
                     vec![
-                        member("title", State(4)),
-                        member("author", State(5)),
-                        member("length", State(4)),
-                        member("cast", State(6)),
+                        member("title", State::new(4)),
+                        member("author", State::new(5)),
+                        member("length", State::new(4)),
+                        member("cast", State::new(6)),
                     ],
                     vec![],
-                    State(0),
+                    State::new(0),
                     StateAttributes::ACCEPTING,
                 ),
-                state_table(vec![], vec![], State(0), StateAttributes::ACCEPTING),
+                state_table(vec![], vec![], State::new(0), StateAttributes::ACCEPTING),
                 state_table(
-                    vec![member("name", State(4)), member("age", State(4))],
+                    vec![member("name", State::new(4)), member("age", State::new(4))],
                     vec![],
-                    State(0),
+                    State::new(0),
                     StateAttributes::ACCEPTING,
                 ),
-                state_table(vec![], vec![cast_to_person], State(0), StateAttributes::ACCEPTING),
-            ],
-        }
+                state_table(vec![], vec![cast_to_person], State::new(0), StateAttributes::ACCEPTING),
+            ])
     }
 
     fn state_table(
@@ -321,12 +322,12 @@ mod tests {
         fallback_state: State,
         attributes: StateAttributes,
     ) -> StateTable {
-        StateTable {
+        StateTable::new(
             attributes,
-            member_transitions: member_transitions.into_iter().collect(),
-            array_transitions: array_transitions.into_iter().collect(),
+            member_transitions.into_iter().collect(),
+            array_transitions.into_iter().collect(),
             fallback_state,
-        }
+        )
     }
 
     fn member(label: &str, target: State) -> (Arc<StringPattern>, State) {

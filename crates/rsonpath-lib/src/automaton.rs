@@ -3,12 +3,10 @@ mod array_transition_set;
 pub mod error;
 mod minimizer;
 mod nfa;
-mod product;
 mod small_set;
 mod state;
 
 pub use state::{State, StateAttributes};
-pub use product::has_nonempty_intersection_of_symmetric_difference;
 
 use crate::{automaton::error::CompilerError, debug, string_pattern::StringPattern};
 use nfa::NondeterministicAutomaton;
@@ -38,7 +36,7 @@ pub struct ArrayTransition {
 /// Represent the distinct methods of moving on a match between states.
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Debug, Copy, PartialEq, Clone, Eq)]
-pub(super) enum ArrayTransitionLabel {
+pub(crate) enum ArrayTransitionLabel {
     /// Transition on the n-th element of an array, with n specified by a [`JsonUInt`].
     Index(JsonUInt),
     /// Transition on elements of array matched by a slice expression - bounds and a step.
@@ -112,6 +110,11 @@ impl ArrayTransition {
     }
 
     #[inline(always)]
+    pub(crate) fn label(&self) -> ArrayTransitionLabel {
+        self.label
+    }
+
+    #[inline(always)]
     pub(crate) fn target_state(&self) -> State {
         self.target
     }
@@ -155,6 +158,10 @@ impl From<SimpleSlice> for ArrayTransitionLabel {
 }
 
 impl Automaton {
+    pub(crate) fn from_states(states: Vec<StateTable>) -> Self {
+        Self { states }
+    }
+
     /// Convert a [`JsonPathQuery`] into a minimal deterministic automaton.
     ///
     /// # Errors
@@ -404,6 +411,20 @@ impl Automaton {
 }
 
 impl StateTable {
+    pub(crate) fn new(
+        attributes: StateAttributes,
+        member_transitions: SmallVec<[MemberTransition; 2]>,
+        array_transitions: SmallVec<[ArrayTransition; 2]>,
+        fallback_state: State,
+    ) -> Self {
+        Self {
+            attributes,
+            member_transitions,
+            array_transitions,
+            fallback_state,
+        }
+    }
+
     /// Returns the state to which a fallback transition leads.
     ///
     /// A fallback transition is the catch-all transition triggered
@@ -527,8 +548,23 @@ impl Display for Automaton {
 }
 
 impl SimpleSlice {
-    fn new(start: JsonUInt, end: Option<JsonUInt>, step: JsonUInt) -> Self {
+    pub(crate) fn new(start: JsonUInt, end: Option<JsonUInt>, step: JsonUInt) -> Self {
         Self { start, end, step }
+    }
+
+    #[inline(always)]
+    pub(crate) fn start(&self) -> JsonUInt {
+        self.start
+    }
+
+    #[inline(always)]
+    pub(crate) fn end(&self) -> Option<JsonUInt> {
+        self.end
+    }
+
+    #[inline(always)]
+    pub(crate) fn step(&self) -> JsonUInt {
+        self.step
     }
 
     #[inline(always)]
