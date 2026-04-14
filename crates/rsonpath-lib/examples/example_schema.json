@@ -1,0 +1,49 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$defs": {
+        "Root": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "content": { 
+                    "items": {
+                        "anyOf": [
+                            { "$ref": "#/$defs/Book" },
+                            { "$ref": "#/$defs/Movie" }
+                        ]
+                    } 
+                }
+            }
+        },
+        "Book": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "title": { "type": "string" },
+                "author": { "$ref": "#/$defs/Person" },
+                "length": { "type": "string" }
+            }
+        },
+        "Movie": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "title": { "type": "string" },
+                "cast": {
+                    "type": "array",
+                    "items": { "$ref": "#/$defs/Person" } 
+                },
+                "length": { "type": "string" }
+            }
+        },
+        "Person": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "name": { "type": "string" },
+                "age": { "type": "string" }
+            }
+        }
+    },
+    "$ref": "#/$defs/Root"
+}
