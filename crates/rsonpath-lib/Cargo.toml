@@ -32,6 +32,7 @@ log = { workspace = true }
 memmap2 = "0.9.9"
 rsonpath-syntax = { workspace = true }
 serde = { workspace = true, optional = true, features = ["derive", "rc"] }
+serde_json.workspace = true
 smallvec = { version = "1.15.1", features = ["union"] }
 static_assertions = "1.1.0"
 thiserror = { workspace = true }
@@ -57,6 +58,11 @@ simd = []
 [[example]]
 name = "approx_spans_usage"
 path = "examples/approx_spans_usage.rs"
+doc-scrape-examples = true
+
+[[example]]
+name = "parser_test"
+path = "examples/parser_test.rs"
 doc-scrape-examples = true
 
 [lints]

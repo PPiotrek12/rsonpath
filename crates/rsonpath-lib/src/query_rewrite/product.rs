@@ -38,6 +38,7 @@ struct ProductState {
 /// For array transitions it scans a finite set of representative indices. The
 /// scan goes up to a boundary derived from the currently visible index/slice
 /// labels and then through one full common period of all visible slice steps.
+#[inline]
 #[must_use]
 pub fn has_nonempty_intersection_of_symmetric_difference(q1: &Automaton, q2: &Automaton, d: &Automaton) -> bool {
     let initial = ProductState {
@@ -286,34 +287,34 @@ mod tests {
         );
 
         Automaton::from_states(vec![
-                state_table(vec![], vec![], State::new(0), StateAttributes::REJECTING),
-                state_table(
-                    vec![member("content", State::new(2))],
-                    vec![],
-                    State::new(0),
-                    StateAttributes::ACCEPTING,
-                ),
-                state_table(vec![], vec![content_to_item], State::new(0), StateAttributes::ACCEPTING),
-                state_table(
-                    vec![
-                        member("title", State::new(4)),
-                        member("author", State::new(5)),
-                        member("length", State::new(4)),
-                        member("cast", State::new(6)),
-                    ],
-                    vec![],
-                    State::new(0),
-                    StateAttributes::ACCEPTING,
-                ),
-                state_table(vec![], vec![], State::new(0), StateAttributes::ACCEPTING),
-                state_table(
-                    vec![member("name", State::new(4)), member("age", State::new(4))],
-                    vec![],
-                    State::new(0),
-                    StateAttributes::ACCEPTING,
-                ),
-                state_table(vec![], vec![cast_to_person], State::new(0), StateAttributes::ACCEPTING),
-            ])
+            state_table(vec![], vec![], State::new(0), StateAttributes::REJECTING),
+            state_table(
+                vec![member("content", State::new(2))],
+                vec![],
+                State::new(0),
+                StateAttributes::ACCEPTING,
+            ),
+            state_table(vec![], vec![content_to_item], State::new(0), StateAttributes::ACCEPTING),
+            state_table(
+                vec![
+                    member("title", State::new(4)),
+                    member("author", State::new(5)),
+                    member("length", State::new(4)),
+                    member("cast", State::new(6)),
+                ],
+                vec![],
+                State::new(0),
+                StateAttributes::ACCEPTING,
+            ),
+            state_table(vec![], vec![], State::new(0), StateAttributes::ACCEPTING),
+            state_table(
+                vec![member("name", State::new(4)), member("age", State::new(4))],
+                vec![],
+                State::new(0),
+                StateAttributes::ACCEPTING,
+            ),
+            state_table(vec![], vec![cast_to_person], State::new(0), StateAttributes::ACCEPTING),
+        ])
     }
 
     fn state_table(
