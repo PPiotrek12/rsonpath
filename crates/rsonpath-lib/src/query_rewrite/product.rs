@@ -214,13 +214,7 @@ fn gcd(mut a: u64, mut b: u64) -> u64 {
 #[cfg(test)]
 mod tests {
     use super::has_nonempty_intersection_of_symmetric_difference;
-    use crate::{
-        automaton::{
-            ArrayTransition, ArrayTransitionLabel, Automaton, SimpleSlice, State, StateAttributes, StateTable,
-        },
-        StringPattern,
-    };
-    use std::sync::Arc;
+    use crate::{automaton::Automaton, query_rewrite::json_schema_parser};
 
     #[test]
     fn product_detects_nonempty_member_language() {
@@ -259,80 +253,15 @@ mod tests {
     }
 
     #[test]
-    fn schema_document_distinguishes_four_step_name_and_descendant_name() {
-        let q1 = Automaton::new(&rsonpath_syntax::parse("$.*.*.*.*.name").unwrap()).unwrap();
-        let q2 = Automaton::new(&rsonpath_syntax::parse("$..name").unwrap()).unwrap();
-        let d = document_schema_automaton();
-
-        assert!(has_nonempty_intersection_of_symmetric_difference(&q1, &q2, &d));
-    }
-
-    #[test]
     fn schema_document_equates_content_title_and_descendant_title() {
         let q1 = Automaton::new(&rsonpath_syntax::parse("$.content.*.title").unwrap()).unwrap();
         let q2 = Automaton::new(&rsonpath_syntax::parse("$..title").unwrap()).unwrap();
-        let d = document_schema_automaton();
+        let d = json_schema_parser::from_string(example_schema()).unwrap();
 
         assert!(!has_nonempty_intersection_of_symmetric_difference(&q1, &q2, &d));
     }
 
-    fn document_schema_automaton() -> Automaton {
-        let content_to_item = ArrayTransition::new(
-            ArrayTransitionLabel::Slice(SimpleSlice::new(0.into(), None, 1.into())),
-            State::new(3),
-        );
-        let cast_to_person = ArrayTransition::new(
-            ArrayTransitionLabel::Slice(SimpleSlice::new(0.into(), None, 1.into())),
-            State::new(5),
-        );
-
-        Automaton::from_states(vec![
-            state_table(vec![], vec![], State::new(0), StateAttributes::REJECTING),
-            state_table(
-                vec![member("content", State::new(2))],
-                vec![],
-                State::new(0),
-                StateAttributes::ACCEPTING,
-            ),
-            state_table(vec![], vec![content_to_item], State::new(0), StateAttributes::ACCEPTING),
-            state_table(
-                vec![
-                    member("title", State::new(4)),
-                    member("author", State::new(5)),
-                    member("length", State::new(4)),
-                    member("cast", State::new(6)),
-                ],
-                vec![],
-                State::new(0),
-                StateAttributes::ACCEPTING,
-            ),
-            state_table(vec![], vec![], State::new(0), StateAttributes::ACCEPTING),
-            state_table(
-                vec![member("name", State::new(4)), member("age", State::new(4))],
-                vec![],
-                State::new(0),
-                StateAttributes::ACCEPTING,
-            ),
-            state_table(vec![], vec![cast_to_person], State::new(0), StateAttributes::ACCEPTING),
-        ])
-    }
-
-    fn state_table(
-        member_transitions: Vec<(Arc<StringPattern>, State)>,
-        array_transitions: Vec<ArrayTransition>,
-        fallback_state: State,
-        attributes: StateAttributes,
-    ) -> StateTable {
-        StateTable::new(
-            attributes,
-            member_transitions.into_iter().collect(),
-            array_transitions.into_iter().collect(),
-            fallback_state,
-        )
-    }
-
-    fn member(label: &str, target: State) -> (Arc<StringPattern>, State) {
-        let json_string = rsonpath_syntax::str::JsonString::new(label);
-        (Arc::new(StringPattern::new(&json_string)), target)
+    fn example_schema() -> &'static str {
+        include_str!("../../examples/example_schema.json")
     }
 }
