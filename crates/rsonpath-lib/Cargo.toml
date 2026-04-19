@@ -60,10 +60,5 @@ name = "approx_spans_usage"
 path = "examples/approx_spans_usage.rs"
 doc-scrape-examples = true
 
-[[example]]
-name = "parser_test"
-path = "examples/parser_test.rs"
-doc-scrape-examples = true
-
 [lints]
 workspace = true
