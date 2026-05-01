@@ -1208,7 +1208,6 @@ dependencies = [
  "rsonpath-lib",
  "rsonpath-syntax",
  "rustflags",
- "serde_json",
  "simple_logger",
  "trycmd",
  "vergen",

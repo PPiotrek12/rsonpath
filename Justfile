@@ -52,12 +52,16 @@ build-bin profile="dev": (build-lib profile)
 build-rewrite-bin profile="dev": (build-lib profile)
     cargo build --bin rq-rewrite --profile {{profile}}
 
+# Build the rq-rewrite-validate binary.
+build-rewrite-validate-bin profile="dev": (build-lib profile)
+    cargo build --bin rq-rewrite-validate --profile {{profile}}
+
 # Build the rsonpath-lib library.
 build-lib profile="dev":
     cargo build --package rsonpath-lib --profile {{profile}}
 
 # Build all rsonpath parts, both binaries and the library.
-build-all profile="dev": (build-lib profile) (build-bin profile) (build-rewrite-bin profile) (gen-tests)
+build-all profile="dev": (build-lib profile) (build-bin profile) (build-rewrite-bin profile) (build-rewrite-validate-bin profile) (gen-tests)
 
 # Build and open the library documentation.
 doc $RUSTDOCFLAGS="--cfg docsrs":
@@ -90,6 +94,16 @@ run-rewrite-debug *ARGS: (build-rewrite-bin "dev")
 [no-exit-message]
 run-rewrite *ARGS: (build-rewrite-bin "release")
     ./target/release/rq-rewrite {{ARGS}}
+
+# Run the rewrite validator CLI in debug profile.
+[no-exit-message]
+run-rewrite-validate-debug *ARGS: (build-rewrite-validate-bin "dev")
+    ./target/debug/rq-rewrite-validate {{ARGS}}
+
+# Run the rewrite validator CLI in release profile.
+[no-exit-message]
+run-rewrite-validate *ARGS: (build-rewrite-validate-bin "release")
+    ./target/release/rq-rewrite-validate {{ARGS}}
 
 # === WATCH ===
 watch *ARGS:

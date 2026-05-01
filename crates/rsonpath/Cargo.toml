@@ -28,6 +28,11 @@ bench = false
 path = "./src/bin/rq_rewrite.rs"
 name = "rq-rewrite"
 
+[[bin]]
+bench = false
+path = "./src/bin/rq_rewrite_validate.rs"
+name = "rq-rewrite-validate"
+
 [dependencies]
 clap = { version = "4.6.0", features = ["derive", "wrap_help"] }
 color-eyre = { version = "0.6.5", default-features = false }
@@ -35,7 +40,6 @@ eyre = "0.6.12"
 log = { workspace = true }
 rsonpath-lib = { workspace = true }
 rsonpath-syntax = { workspace = true, features = ["color"] }
-serde_json = { workspace = true }
 simple_logger = "5.2.0"
 
 [build-dependencies]
