@@ -22,7 +22,7 @@ use rsonpath_syntax::str::JsonString;
 ///
 /// "Fake type" indicates that this type is created during parsing to represent array transitions
 /// Any other JSON Schema keywords or constructs are ignored in this version
-/// 
+///
 #[derive(Debug)]
 struct SchemaType {
     type_name: String,
@@ -495,7 +495,9 @@ fn parse_json_schema(json_schema: &str) -> Result<Automaton, ParsingError> {
 mod tests {
     use super::{from_file, from_string};
     use crate::{
-        automaton::{ArrayTransition, ArrayTransitionLabel, Automaton, SimpleSlice, State, StateAttributes, StateTable},
+        automaton::{
+            ArrayTransition, ArrayTransitionLabel, Automaton, SimpleSlice, State, StateAttributes, StateTable,
+        },
         StringPattern,
     };
     use std::sync::Arc;

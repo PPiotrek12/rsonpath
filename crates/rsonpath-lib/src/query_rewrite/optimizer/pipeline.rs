@@ -1,6 +1,6 @@
 use std::collections::HashSet;
 
-use crate::automaton::{Automaton, error::CompilerError};
+use crate::automaton::{error::CompilerError, Automaton};
 use crate::query_rewrite::{
     json_schema_parser,
     optimizer::{PrefixToDescendantGenerator, QueryCandidateGenerator, QueryRewriteError},
@@ -31,7 +31,11 @@ impl<'a> QueryRewritePipeline<'a> {
         Self { generators }
     }
 
-    pub fn optimize_query(&self, query: &JsonPathQuery, d: &Automaton) -> Result<Vec<JsonPathQuery>, QueryRewriteError> {
+    pub fn optimize_query(
+        &self,
+        query: &JsonPathQuery,
+        d: &Automaton,
+    ) -> Result<Vec<JsonPathQuery>, QueryRewriteError> {
         let original_automaton = Automaton::new(query)?;
         let mut seen = HashSet::new();
         let mut equivalent = Vec::new();
@@ -54,11 +58,7 @@ impl<'a> QueryRewritePipeline<'a> {
         Ok(equivalent)
     }
 
-    pub fn optimize_query_string(
-        &self,
-        query: &str,
-        d: &Automaton,
-    ) -> Result<Vec<JsonPathQuery>, QueryRewriteError> {
+    pub fn optimize_query_string(&self, query: &str, d: &Automaton) -> Result<Vec<JsonPathQuery>, QueryRewriteError> {
         let parsed = rsonpath_syntax::parse(query)?;
         self.optimize_query(&parsed, d)
     }

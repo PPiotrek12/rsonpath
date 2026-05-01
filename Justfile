@@ -48,12 +48,16 @@ build profile="release": (build-all profile)
 build-bin profile="dev": (build-lib profile)
     cargo build --bin rq --profile {{profile}}
 
+# Build the rq-rewrite binary.
+build-rewrite-bin profile="dev": (build-lib profile)
+    cargo build --bin rq-rewrite --profile {{profile}}
+
 # Build the rsonpath-lib library.
 build-lib profile="dev":
     cargo build --package rsonpath-lib --profile {{profile}}
 
-# Build all rsonpath parts, the binary and library.
-build-all profile="dev": (build-lib profile) (build-bin profile) (gen-tests)
+# Build all rsonpath parts, both binaries and the library.
+build-all profile="dev": (build-lib profile) (build-bin profile) (build-rewrite-bin profile) (gen-tests)
 
 # Build and open the library documentation.
 doc $RUSTDOCFLAGS="--cfg docsrs":
@@ -76,6 +80,16 @@ run-debug *ARGS: (build-bin "dev")
 [no-exit-message]
 run *ARGS: (build-bin "release")
     ./target/release/rq {{ARGS}}
+
+# Run the rewrite CLI in debug profile.
+[no-exit-message]
+run-rewrite-debug *ARGS: (build-rewrite-bin "dev")
+    ./target/debug/rq-rewrite {{ARGS}}
+
+# Run the rewrite CLI in release profile.
+[no-exit-message]
+run-rewrite *ARGS: (build-rewrite-bin "release")
+    ./target/release/rq-rewrite {{ARGS}}
 
 # === WATCH ===
 watch *ARGS:
