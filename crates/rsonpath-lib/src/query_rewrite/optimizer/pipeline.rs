@@ -1,6 +1,7 @@
 use std::collections::HashSet;
 
 use crate::automaton::{error::CompilerError, Automaton};
+use crate::query_rewrite::extraction::extract_automaton_from_file;
 use crate::query_rewrite::{
     json_schema_parser,
     optimizer::{PrefixToDescendantGenerator, QueryCandidateGenerator, QueryRewriteError},
@@ -120,6 +121,15 @@ pub fn optimize_query_with_schema_file(
 ) -> Result<Vec<JsonPathQuery>, QueryRewriteError> {
     let generator = PrefixToDescendantGenerator;
     QueryRewritePipeline::new(vec![&generator]).optimize_query_with_schema_file(query, schema_path)
+}
+
+pub fn optimize_query_without_schema_file(
+    query: &str,
+    document_path: &str,
+) -> Result<Vec<JsonPathQuery>, QueryRewriteError> {
+    let generator = PrefixToDescendantGenerator;
+    let automaton = extract_automaton_from_file(document_path);
+    QueryRewritePipeline::new(vec![&generator]).optimize_query_string(query, &automaton)
 }
 
 fn compile_candidate(query: &JsonPathQuery) -> Result<Automaton, CompilerError> {

@@ -1,14 +1,13 @@
-use std::{collections::HashMap, sync::Arc};
+use std::collections::HashMap;
 
 use log::trace;
 use serde_json::Value;
 use smallvec::SmallVec;
 
 use crate::automaton::{
-    ArrayTransition, ArrayTransitionLabel, Automaton, MemberTransition, SimpleSlice, State, StateAttributes, StateTable,
+    ArrayTransition, Automaton, MemberTransition, State, StateAttributes, StateTable,
 };
-use crate::string_pattern::StringPattern;
-use rsonpath_syntax::str::JsonString;
+use crate::query_rewrite::helpers::{self, new_array_transition, new_member_transition};
 
 /// This struct represents a type definition in the subset of JSON Schema relevant for our use case.
 ///
@@ -337,20 +336,6 @@ fn unroll_arrays(types: Vec<SchemaType>) -> Result<Vec<SchemaType>, ParsingError
     Ok(unrolled_types)
 }
 
-/// Helper funtion to create a transition with a string label
-fn new_member_transition(label: &str, target: State) -> MemberTransition {
-    let json_string = JsonString::new(label);
-    let pattern = StringPattern::new(&json_string);
-    (Arc::new(pattern), target)
-}
-
-/// Helper function to create an array transition with wildcard slice [*]
-fn new_array_transition(target: State) -> ArrayTransition {
-    use rsonpath_syntax::num::JsonUInt;
-    let slice = SimpleSlice::new(JsonUInt::ZERO, None, JsonUInt::ONE);
-    ArrayTransition::new(ArrayTransitionLabel::Slice(slice), target)
-}
-
 /// Constructs an automaton from a list of JSON Type definitions (SchemaType).
 /// Each type corresponds to a state in the automaton, and the properties of the type define the transitions to other states.
 ///
@@ -359,30 +344,20 @@ fn new_array_transition(target: State) -> ArrayTransition {
 ///
 /// # Returns
 /// An Automaton representing the paths defined by the JSON Schema, or a ParsingError
-fn construct_automaton_from_types(types: &[SchemaType]) -> Result<Automaton, ParsingError> {
-    let mut states: Vec<StateTable> = vec![
-        StateTable::new(
-            // LEAF state
-            StateAttributes::ACCEPTING,
-            SmallVec::new(),
-            SmallVec::new(),
-            crate::automaton::State::new(0),
-        ),
-        StateTable::new(
-            // REJECT state
-            StateAttributes::REJECTING,
-            SmallVec::new(),
-            SmallVec::new(),
-            crate::automaton::State::new(1),
-        ),
-    ];
+fn construct_automaton_from_types(types: &[SchemaType], root_name: &str) -> Result<Automaton, ParsingError> {
+    let state_count = types.len();
+    let mut states: Vec<StateTable> = vec![helpers::new_dumpster_state(); state_count + 2];
 
     let mut counter: u8 = 2;
     let mut type_to_state: HashMap<String, u8> = HashMap::new();
 
     for t in types {
-        type_to_state.insert(t.type_name.clone(), counter);
-        counter += 1;
+        if t.type_name == root_name {
+            type_to_state.insert(t.type_name.clone(), 1);
+        } else {
+            type_to_state.insert(t.type_name.clone(), counter);
+            counter += 1;
+        }
     }
 
     for t in types {
@@ -394,7 +369,7 @@ fn construct_automaton_from_types(types: &[SchemaType]) -> Result<Automaton, Par
                 ChildType::Type(type_name) => *type_to_state
                     .get(type_name)
                     .ok_or_else(|| ParsingError::type_not_found(&t.type_name, type_name))?,
-                ChildType::Primitive => 0,
+                ChildType::Primitive => (state_count + 1) as u8,
                 ChildType::Array(_) => {
                     unreachable!("Arrays should have been unrolled into separate types during parsing")
                 }
@@ -407,14 +382,17 @@ fn construct_automaton_from_types(types: &[SchemaType]) -> Result<Automaton, Par
             }
         }
 
-        states.push(StateTable::new(
+        let my_idx = *type_to_state.get(&t.type_name).expect("") as usize;
+        states[my_idx] = StateTable::new(
             StateAttributes::ACCEPTING,
             member_transitions,
             array_transitions,
-            crate::automaton::State::new(1),
-        ));
+            State::new(0),
+        );
     }
 
+    *(states.last_mut().expect("States cannot be none")) =
+        StateTable::new(StateAttributes::ACCEPTING, vec![].into(), vec![].into(), State::new(0));
     Ok(Automaton::from_states(states))
 }
 
@@ -488,7 +466,10 @@ fn parse_json_schema(json_schema: &str) -> Result<Automaton, ParsingError> {
 
     trace!("Types after unrolling arrays: {:?}", &types_with_arrays);
 
-    construct_automaton_from_types(&types_with_arrays)
+    let root_name = get_required_string_field(&schema, "$ref")?;
+    let root_name = get_type_name_from_ref(root_name);
+
+    construct_automaton_from_types(&types_with_arrays, root_name)
 }
 
 #[cfg(test)]

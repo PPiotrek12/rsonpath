@@ -1,9 +1,10 @@
 use clap::Parser;
 use color_eyre::eyre::{Result, WrapErr as _};
 use rsonpath_lib::{
-    engine::{Compiler, Engine, RsonpathEngine},
+    engine::{Compiler as _, Engine as _, RsonpathEngine},
     input::OwnedBytes,
     query_rewrite::optimize_query_with_schema_file,
+    query_rewrite::optimize_query_without_schema_file,
 };
 use rsonpath_syntax::JsonPathQuery;
 use std::{cmp, fs, time::Instant};
@@ -15,8 +16,11 @@ struct Args {
     /// JSONPath query used as the baseline.
     query: String,
     /// Path to the JSON schema file describing valid documents.
-    #[clap(short, long)]
-    schema_file: String,
+    #[clap(short, long, required_unless_present = "no_schema")]
+    schema_file: Option<String>,
+    /// Boolean flag whether we want to infer schema from document
+    #[clap(long, conflicts_with = "schema_file")]
+    no_schema: bool,
     /// Path to the JSON document used for validation and benchmarking.
     #[clap(short = 'd', long)]
     document_file: String,
@@ -63,9 +67,14 @@ fn run_benchmark(args: &Args) -> Result<Vec<BenchmarkRow>> {
     }
 
     let baseline_query = rsonpath_syntax::parse(&args.query).wrap_err("Failed to parse the baseline query.")?;
-    let candidates = optimize_query_with_schema_file(&args.query, &args.schema_file)
-        .wrap_err("Failed to generate rewrite candidates from the schema.")?;
-
+    let candidates = {
+        if let Some(schema) = &args.schema_file {
+            optimize_query_with_schema_file(&args.query, schema)
+                .wrap_err("Failed to generate rewrite candidates from the schema.")?
+        } else {
+            optimize_query_without_schema_file(&args.query, &args.document_file)?
+        }
+    };
     let document = fs::read(&args.document_file).wrap_err("Failed to read the JSON document.")?;
     let input = OwnedBytes::new(document);
 
@@ -206,7 +215,7 @@ fn render_report(args: &Args, rows: &[BenchmarkRow]) -> String {
     let table = format_table(&table_rows);
 
     format!(
-        "Baseline query: {}\nSchema file: {}\nDocument file: {}\nGenerated candidates: {}\nIterations per candidate: {}\nWarm-up runs: {}\nValidation: exact match-index equality against the baseline query\n\n{}",
+        "Baseline query: {}\nSchema file: {:?}\nDocument file: {}\nGenerated candidates: {}\nIterations per candidate: {}\nWarm-up runs: {}\nValidation: exact match-index equality against the baseline query\n\n{}",
         args.query,
         args.schema_file,
         args.document_file,
