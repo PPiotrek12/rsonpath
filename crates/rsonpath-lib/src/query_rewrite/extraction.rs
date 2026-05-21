@@ -130,7 +130,6 @@ impl TreeMinimizer {
                 State::new(0),
             ));
 
-            dbg!("{:?}", state_table_vec.last());
         }
 
         Automaton::from_states(state_table_vec)

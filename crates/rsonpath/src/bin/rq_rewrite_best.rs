@@ -1,10 +1,10 @@
-use clap::Parser;
+use clap::{Parser, ValueEnum};
 use color_eyre::eyre::Result;
-use rsonpath::rewrite_benchmark::{render_report, run_benchmark, RewriteBenchmarkConfig};
+use rsonpath::rewrite_benchmark::{render_report, select_best_rewrite, RewriteBenchmarkConfig};
 
 #[derive(Parser, Debug)]
-#[clap(name = "rq-rewrite-validate", author, version, about)]
-/// Benchmark and validate schema-aware query rewrites on a concrete document.
+#[clap(name = "rq-rewrite-best", author, version, about)]
+/// Select the fastest validated rewrite for a JSONPath query on a concrete document.
 struct Args {
     /// JSONPath query used as the baseline.
     query: String,
@@ -23,6 +23,17 @@ struct Args {
     /// Number of warm-up runs before timed execution.
     #[clap(long, default_value_t = 1)]
     warmup: usize,
+    /// Output format.
+    #[clap(long, value_enum, default_value_t = OutputFormat::Query)]
+    format: OutputFormat,
+}
+
+#[derive(Clone, Copy, Debug, ValueEnum)]
+enum OutputFormat {
+    /// Print only the selected query.
+    Query,
+    /// Print the full validation table followed by the selected query.
+    Report,
 }
 
 fn main() -> Result<()> {
@@ -37,9 +48,15 @@ fn main() -> Result<()> {
         iterations: args.iterations,
         warmup: args.warmup,
     };
-    let report = run_benchmark(&config)?;
+    let selection = select_best_rewrite(&config)?;
 
-    println!("{}", render_report(&config, &report));
+    match args.format {
+        OutputFormat::Query => println!("{}", selection.query),
+        OutputFormat::Report => {
+            println!("{}", render_report(&config, &selection.report));
+            println!("Best equivalent query: {}", selection.query);
+        }
+    }
 
     Ok(())
 }

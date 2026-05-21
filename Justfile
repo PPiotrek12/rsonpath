@@ -56,12 +56,16 @@ build-rewrite-bin profile="dev": (build-lib profile)
 build-rewrite-validate-bin profile="dev": (build-lib profile)
     cargo build --bin rq-rewrite-validate --profile {{profile}}
 
+# Build the rq-rewrite-best binary.
+build-rewrite-best-bin profile="dev": (build-lib profile)
+    cargo build --bin rq-rewrite-best --profile {{profile}}
+
 # Build the rsonpath-lib library.
 build-lib profile="dev":
     cargo build --package rsonpath-lib --profile {{profile}}
 
 # Build all rsonpath parts, both binaries and the library.
-build-all profile="dev": (build-lib profile) (build-bin profile) (build-rewrite-bin profile) (build-rewrite-validate-bin profile) (gen-tests)
+build-all profile="dev": (build-lib profile) (build-bin profile) (build-rewrite-bin profile) (build-rewrite-validate-bin profile) (build-rewrite-best-bin profile) (gen-tests)
 
 # Build and open the library documentation.
 doc $RUSTDOCFLAGS="--cfg docsrs":
@@ -104,6 +108,16 @@ run-rewrite-validate-debug *ARGS: (build-rewrite-validate-bin "dev")
 [no-exit-message]
 run-rewrite-validate *ARGS: (build-rewrite-validate-bin "release")
     ./target/release/rq-rewrite-validate {{ARGS}}
+
+# Run the rewrite best-candidate selector in debug profile.
+[no-exit-message]
+run-rewrite-best-debug *ARGS: (build-rewrite-best-bin "dev")
+    ./target/debug/rq-rewrite-best {{ARGS}}
+
+# Run the rewrite best-candidate selector in release profile.
+[no-exit-message]
+run-rewrite-best *ARGS: (build-rewrite-best-bin "release")
+    ./target/release/rq-rewrite-best {{ARGS}}
 
 # === WATCH ===
 watch *ARGS:
