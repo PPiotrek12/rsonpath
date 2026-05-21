@@ -40,6 +40,7 @@ struct VariantResult {
     id: &'static str,
     dataset: &'static str,
     variant: &'static str,
+    auto_candidate_rank: Option<usize>,
     row: BenchmarkRow,
     speedup_vs_original: f64,
 }
@@ -170,10 +171,42 @@ fn main() -> Result<()> {
             .find(|row| row.role == "original")
             .cloned()
             .ok_or_else(|| color_eyre::eyre::eyre!("missing original row for {}", case.id))?;
-        let original_mean = original.exec_mean_ns;
+        let original_throughput = original.throughput_bytes_per_s;
 
-        push_result(&mut results, case, "paper_original", original, original_mean);
-        push_result(&mut results, case, "auto_best", selection.row, original_mean);
+        push_result(
+            &mut results,
+            case,
+            "paper_original",
+            None,
+            original,
+            original_throughput,
+        );
+        push_result(
+            &mut results,
+            case,
+            "auto_best",
+            None,
+            selection.row.clone(),
+            original_throughput,
+        );
+
+        for (rank, row) in selection
+            .report
+            .rows
+            .iter()
+            .filter(|row| row.role == "rewrite")
+            .cloned()
+            .enumerate()
+        {
+            push_result(
+                &mut results,
+                case,
+                "auto_candidate",
+                Some(rank + 1),
+                row,
+                original_throughput,
+            );
+        }
 
         if let Some(manual) = case.manual {
             let manual = benchmark_fixed_query(&FixedQueryBenchmarkConfig {
@@ -185,7 +218,7 @@ fn main() -> Result<()> {
                 warmup: args.warmup,
             })
             .wrap_err_with(|| format!("failed to benchmark manual rewrite for {}", case.id))?;
-            push_result(&mut results, case, "paper_manual", manual, original_mean);
+            push_result(&mut results, case, "paper_manual", None, manual, original_throughput);
         }
     }
 
@@ -200,14 +233,16 @@ fn push_result(
     results: &mut Vec<VariantResult>,
     case: &'static PaperQuery,
     variant: &'static str,
+    auto_candidate_rank: Option<usize>,
     row: BenchmarkRow,
-    original_mean_ns: u128,
+    original_throughput: f64,
 ) {
     results.push(VariantResult {
         id: case.id,
         dataset: case.dataset,
         variant,
-        speedup_vs_original: original_mean_ns as f64 / row.exec_mean_ns as f64,
+        auto_candidate_rank,
+        speedup_vs_original: row.throughput_bytes_per_s / original_throughput,
         row,
     });
 }
@@ -218,22 +253,24 @@ fn write_csv(path: &PathBuf, results: &[VariantResult]) -> Result<()> {
     }
 
     let mut output = String::from(
-        "id,dataset,variant,query,query_len,match_count,matches_baseline,compile_ns,exec_mean_ns,exec_min_ns,exec_max_ns,speedup_vs_original\n",
+        "id,dataset,variant,auto_candidate_rank,query,query_len,match_count,matches_baseline,compile_ns,exec_mean_ns,throughput_bytes_per_s,speedup_vs_original\n",
     );
     for result in results {
         output.push_str(&format!(
-            "{},{},{},{},{},{},{},{},{},{},{},{:.6}\n",
+            "{},{},{},{},{},{},{},{},{},{},{:.6},{:.6}\n",
             csv_escape(result.id),
             csv_escape(result.dataset),
             csv_escape(result.variant),
+            result
+                .auto_candidate_rank
+                .map_or_else(String::new, |rank| rank.to_string()),
             csv_escape(&result.row.query),
             result.row.query_len,
             result.row.match_count,
             result.row.matches_baseline,
             result.row.compile_ns,
             result.row.exec_mean_ns,
-            result.row.exec_min_ns,
-            result.row.exec_max_ns,
+            result.row.throughput_bytes_per_s,
             result.speedup_vs_original,
         ));
     }
@@ -247,6 +284,7 @@ fn render_terminal_table(results: &[VariantResult]) -> String {
         String::from("Dataset"),
         String::from("Variant"),
         String::from("Mean ms"),
+        String::from("Throughput GB/s"),
         String::from("Speedup"),
         String::from("Query"),
     ]];
@@ -257,6 +295,7 @@ fn render_terminal_table(results: &[VariantResult]) -> String {
             result.dataset.to_string(),
             result.variant.to_string(),
             format!("{:.3}", result.row.exec_mean_ns as f64 / 1_000_000.0),
+            format!("{:.2}", result.row.throughput_bytes_per_s / 1_000_000_000.0),
             format!("{:.2}x", result.speedup_vs_original),
             truncate_query(&result.row.query, 64),
         ]);

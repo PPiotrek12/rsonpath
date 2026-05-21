@@ -4,12 +4,12 @@ pub use rsonpath_lib::query_rewrite::benchmark::{
 };
 
 pub fn render_report(config: &RewriteBenchmarkConfig, report: &RewriteBenchmarkReport) -> String {
-    let baseline_exec_ns = report
+    let baseline_throughput = report
         .rows
         .iter()
         .find(|row| row.role == "original")
-        .map(|row| row.exec_mean_ns)
-        .unwrap_or(1);
+        .map(|row| row.throughput_bytes_per_s)
+        .unwrap_or(1.0);
 
     let mut table_rows = Vec::with_capacity(report.rows.len() + 1);
     table_rows.push(vec![
@@ -19,14 +19,13 @@ pub fn render_report(config: &RewriteBenchmarkConfig, report: &RewriteBenchmarkR
         String::from("Status"),
         String::from("Compile ms"),
         String::from("Mean ms"),
-        String::from("Min ms"),
-        String::from("Max ms"),
+        String::from("Throughput GB/s"),
         String::from("Speedup"),
         String::from("Role"),
     ]);
 
     for row in &report.rows {
-        let speedup = baseline_exec_ns as f64 / row.exec_mean_ns as f64;
+        let speedup = row.throughput_bytes_per_s / baseline_throughput;
         table_rows.push(vec![
             truncate_query(&row.query, 56),
             row.query_len.to_string(),
@@ -38,8 +37,7 @@ pub fn render_report(config: &RewriteBenchmarkConfig, report: &RewriteBenchmarkR
             },
             format_ms(row.compile_ns),
             format_ms(row.exec_mean_ns),
-            format_ms(row.exec_min_ns),
-            format_ms(row.exec_max_ns),
+            format!("{:.2}", row.throughput_bytes_per_s / 1_000_000_000.0),
             format!("{speedup:.2}x"),
             row.role.to_string(),
         ]);

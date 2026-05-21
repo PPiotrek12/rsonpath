@@ -4,7 +4,7 @@ use crate::{
     query_rewrite::{optimize_query_with_schema_file, optimize_query_without_schema_file, QueryRewriteError},
 };
 use rsonpath_syntax::JsonPathQuery;
-use std::{cmp, fs, time::Instant};
+use std::{fs, time::Instant};
 use thiserror::Error;
 
 #[derive(Debug)]
@@ -36,8 +36,7 @@ pub struct BenchmarkRow {
     pub matches_baseline: bool,
     pub compile_ns: u128,
     pub exec_mean_ns: u128,
-    pub exec_min_ns: u128,
-    pub exec_max_ns: u128,
+    pub throughput_bytes_per_s: f64,
 }
 
 #[derive(Debug, Clone)]
@@ -75,6 +74,7 @@ pub fn run_benchmark(config: &RewriteBenchmarkConfig) -> Result<RewriteBenchmark
     };
     let generated_candidates = candidates.len();
     let document = fs::read(&config.document_file)?;
+    let document_size_bytes = document.len();
     let input = OwnedBytes::new(document);
 
     let baseline = benchmark_query(
@@ -83,6 +83,7 @@ pub fn run_benchmark(config: &RewriteBenchmarkConfig) -> Result<RewriteBenchmark
         &input,
         config.iterations,
         config.warmup,
+        document_size_bytes,
         None,
     )?;
     let expected_indices = baseline.match_indices.clone();
@@ -101,13 +102,14 @@ pub fn run_benchmark(config: &RewriteBenchmarkConfig) -> Result<RewriteBenchmark
             &input,
             config.iterations,
             config.warmup,
+            document_size_bytes,
             Some(&expected_indices),
         )?;
         rows.push(details.row);
     }
 
     let (baseline_row, mut rewrites): (Vec<_>, Vec<_>) = rows.into_iter().partition(|row| row.role == "original");
-    rewrites.sort_by_key(|row| row.exec_mean_ns);
+    rewrites.sort_by(|left, right| right.throughput_bytes_per_s.total_cmp(&left.throughput_bytes_per_s));
 
     let mut ordered = baseline_row;
     ordered.extend(rewrites);
@@ -122,7 +124,7 @@ pub fn best_equivalent_row(report: &RewriteBenchmarkReport) -> Option<&Benchmark
         .rows
         .iter()
         .filter(|row| row.matches_baseline)
-        .min_by_key(|row| row.exec_mean_ns)
+        .max_by(|left, right| left.throughput_bytes_per_s.total_cmp(&right.throughput_bytes_per_s))
 }
 
 pub fn select_best_rewrite(config: &RewriteBenchmarkConfig) -> Result<BestRewriteSelection, RewriteBenchmarkError> {
@@ -146,6 +148,7 @@ pub fn benchmark_fixed_query(config: &FixedQueryBenchmarkConfig) -> Result<Bench
     let baseline_query = rsonpath_syntax::parse(&config.baseline_query)?;
     let query = rsonpath_syntax::parse(&config.query)?;
     let document = fs::read(&config.document_file)?;
+    let document_size_bytes = document.len();
     let input = OwnedBytes::new(document);
 
     let baseline = benchmark_query(
@@ -154,6 +157,7 @@ pub fn benchmark_fixed_query(config: &FixedQueryBenchmarkConfig) -> Result<Bench
         &input,
         config.iterations,
         config.warmup,
+        document_size_bytes,
         None,
     )?;
     let details = benchmark_query(
@@ -162,6 +166,7 @@ pub fn benchmark_fixed_query(config: &FixedQueryBenchmarkConfig) -> Result<Bench
         &input,
         config.iterations,
         config.warmup,
+        document_size_bytes,
         Some(&baseline.match_indices),
     )?;
 
@@ -174,6 +179,7 @@ fn benchmark_query(
     input: &OwnedBytes<Vec<u8>>,
     iterations: usize,
     warmup: usize,
+    document_size_bytes: usize,
     expected_indices: Option<&[usize]>,
 ) -> Result<BenchmarkDetails, RewriteBenchmarkError> {
     let query_string = query.to_string();
@@ -192,8 +198,6 @@ fn benchmark_query(
     }
 
     let mut total_ns = 0_u128;
-    let mut min_ns = u128::MAX;
-    let mut max_ns = 0_u128;
 
     for _ in 0..iterations {
         let start = Instant::now();
@@ -209,11 +213,11 @@ fn benchmark_query(
         }
 
         total_ns += elapsed;
-        min_ns = cmp::min(min_ns, elapsed);
-        max_ns = cmp::max(max_ns, elapsed);
     }
 
     let exec_mean_ns = total_ns / iterations as u128;
+    let exec_mean_s = exec_mean_ns as f64 / 1_000_000_000.0;
+    let throughput_bytes_per_s = document_size_bytes as f64 / exec_mean_s;
 
     Ok(BenchmarkDetails {
         row: BenchmarkRow {
@@ -224,8 +228,7 @@ fn benchmark_query(
             matches_baseline,
             compile_ns,
             exec_mean_ns,
-            exec_min_ns: min_ns,
-            exec_max_ns: max_ns,
+            throughput_bytes_per_s,
         },
         match_indices: indices,
     })

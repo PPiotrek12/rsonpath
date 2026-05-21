@@ -10,9 +10,9 @@ except ModuleNotFoundError:
 
 
 VARIANTS = [
-    ("paper_original", "original", "tab:blue"),
-    ("auto_best", "generated best", "tab:green"),
-    ("paper_manual", "manual rewrite", "tab:orange"),
+    ("paper_original", "original", "#2563eb"),
+    ("auto", "generated rewrites", "#16a34a"),
+    ("paper_manual", "manual rewrite", "#dc2626"),
 ]
 
 
@@ -20,9 +20,9 @@ def read_rows(path):
     with open(path, newline="") as handle:
         rows = list(csv.DictReader(handle))
 
-    grouped = defaultdict(dict)
+    grouped = defaultdict(lambda: defaultdict(list))
     for row in rows:
-        grouped[row["id"]][row["variant"]] = row
+        grouped[row["id"]][row["variant"]].append(row)
 
     return grouped
 
@@ -45,7 +45,7 @@ def plot_grouped_bars(grouped, output, metric):
     fig, ax = plt.subplots()
     ax.grid(color="white", linestyle="-", linewidth=3, zorder=1)
 
-    present_variants = [variant for variant in VARIANTS if any(variant[0] in grouped[id_] for id_ in ids)]
+    present_variants = present_slots(grouped, ids)
     if len(present_variants) == 1:
         offsets = [0.0]
     else:
@@ -53,17 +53,32 @@ def plot_grouped_bars(grouped, output, metric):
         step = width
         offsets = [start + step * idx for idx in range(len(present_variants))]
 
-    for offset, (variant, label, color) in zip(offsets, present_variants):
-        values = []
-        positions = []
+    for slot_idx, (variant, label, color) in enumerate(present_variants):
+        offset = offsets[slot_idx]
+        label_used = False
         for idx, id_ in enumerate(ids):
-            row = grouped[id_].get(variant)
-            if row is None:
-                continue
-            values.append(value_for(row, metric))
-            positions.append(x[idx] + offset)
-
-        ax.bar(positions, values, width=width, label=label, color=color, zorder=4)
+            rows = rows_for_slot(grouped[id_], variant, metric)
+            if variant == "auto":
+                for candidate_idx, row in enumerate(rows):
+                    ax.bar(
+                        x[idx] + offset,
+                        value_for(row, metric),
+                        width=width,
+                        label=label if not label_used else None,
+                        color=auto_color(candidate_idx, len(rows)),
+                        zorder=4 + candidate_idx,
+                    )
+                    label_used = True
+            elif rows:
+                ax.bar(
+                    x[idx] + offset,
+                    value_for(rows[0], metric),
+                    width=width,
+                    label=label if not label_used else None,
+                    color=color,
+                    zorder=4,
+                )
+                label_used = True
 
     ax.set_xticks(x)
     ax.set_xticklabels(ids)
@@ -76,11 +91,12 @@ def plot_grouped_bars(grouped, output, metric):
 
 def plot_grouped_bars_svg(grouped, output, metric):
     ids = list(grouped)
-    present_variants = [variant for variant in VARIANTS if any(variant[0] in grouped[id_] for id_ in ids)]
+    present_variants = present_slots(grouped, ids)
     values = {
-        (id_, variant): value_for(row, metric)
+        (id_, variant, idx): value_for(row, metric)
         for id_, variants in grouped.items()
-        for variant, row in variants.items()
+        for variant in ("paper_original", "auto_candidate", "auto_best", "paper_manual")
+        for idx, row in enumerate(variants.get(variant, []))
     }
     max_value = max(values.values(), default=1.0)
 
@@ -94,13 +110,7 @@ def plot_grouped_bars_svg(grouped, output, metric):
     plot_height = height - margin_top - margin_bottom
     group_width = plot_width / max(len(ids), 1)
     bar_width = min(24, group_width / max(len(present_variants) + 1, 1))
-    color_map = {variant: color for variant, _, color in VARIANTS}
-    label_map = {variant: label for variant, label, _ in VARIANTS}
-    svg_colors = {
-        "tab:blue": "#1f77b4",
-        "tab:green": "#2ca02c",
-        "tab:orange": "#ff7f0e",
-    }
+    svg_colors = {color: color for _, _, color in VARIANTS if color.startswith("#")}
 
     def sx(group_idx, variant_idx):
         base = margin_left + group_idx * group_width + group_width / 2
@@ -125,21 +135,28 @@ def plot_grouped_bars_svg(grouped, output, metric):
 
     legend_x = margin_left
     for variant, label, color in present_variants:
-        fill = svg_colors.get(color, color)
+        fill = auto_svg_color(0, 1) if variant == "auto" else svg_colors.get(color, color)
         lines.append(f'<rect x="{legend_x}" y="22" width="36" height="18" fill="{fill}"/>')
         lines.append(f'<text x="{legend_x + 46}" y="39">{label}</text>')
         legend_x += 260
 
     for group_idx, id_ in enumerate(ids):
         for variant_idx, (variant, _, color) in enumerate(present_variants):
-            value = values.get((id_, variant))
-            if value is None:
-                continue
             x = sx(group_idx, variant_idx)
-            y = sy(value)
-            h = margin_top + plot_height - y
-            fill = svg_colors.get(color_map[variant], color)
-            lines.append(f'<rect x="{x:.2f}" y="{y:.2f}" width="{bar_width:.2f}" height="{h:.2f}" fill="{fill}"/>')
+            rows = rows_for_slot(grouped[id_], variant, metric)
+            if variant == "auto":
+                for candidate_idx, row in enumerate(rows):
+                    value = value_for(row, metric)
+                    y = sy(value)
+                    h = margin_top + plot_height - y
+                    fill = auto_svg_color(candidate_idx, len(rows))
+                    lines.append(f'<rect x="{x:.2f}" y="{y:.2f}" width="{bar_width:.2f}" height="{h:.2f}" fill="{fill}"/>')
+            elif rows:
+                value = value_for(rows[0], metric)
+                y = sy(value)
+                h = margin_top + plot_height - y
+                fill = svg_colors.get(color, color)
+                lines.append(f'<rect x="{x:.2f}" y="{y:.2f}" width="{bar_width:.2f}" height="{h:.2f}" fill="{fill}"/>')
 
         x = margin_left + group_idx * group_width + group_width / 2
         lines.append(f'<text x="{x:.2f}" y="{height - 42}" text-anchor="middle">{id_}</text>')
@@ -154,9 +171,53 @@ def plot_grouped_bars_svg(grouped, output, metric):
     return output
 
 
+def present_slots(grouped, ids):
+    slots = []
+    if any(grouped[id_].get("paper_original") for id_ in ids):
+        slots.append(VARIANTS[0])
+    if any(grouped[id_].get("auto_candidate") or grouped[id_].get("auto_best") for id_ in ids):
+        slots.append(VARIANTS[1])
+    if any(grouped[id_].get("paper_manual") for id_ in ids):
+        slots.append(VARIANTS[2])
+    return slots
+
+
+def rows_for_slot(variants, slot, metric):
+    if slot == "paper_original":
+        return variants.get("paper_original", [])[:1]
+    if slot == "paper_manual":
+        return variants.get("paper_manual", [])[:1]
+    if slot == "auto":
+        rows = variants.get("auto_candidate") or variants.get("auto_best", [])
+        return sorted(rows, key=lambda row: value_for(row, metric), reverse=True)
+    raise ValueError(slot)
+
+
+def auto_color(idx, total):
+    if total <= 1:
+        return "#16a34a"
+    palette = [
+        "#22c55e",
+        "#16a34a",
+        "#15803d",
+        "#166534",
+        "#14532d",
+        "#052e16",
+    ]
+    if idx < len(palette):
+        return palette[idx]
+    return palette[-1]
+
+
+def auto_svg_color(idx, total):
+    return auto_color(idx, total)
+
+
 def value_for(row, metric):
     if metric == "mean-ms":
         return float(row["exec_mean_ns"]) / 1_000_000.0
+    if metric == "throughput":
+        return float(row["throughput_bytes_per_s"]) / 1_000_000_000.0
     if metric == "speedup":
         return float(row["speedup_vs_original"])
     raise ValueError(metric)
@@ -165,6 +226,8 @@ def value_for(row, metric):
 def label_for(metric):
     if metric == "mean-ms":
         return "mean execution time [ms]"
+    if metric == "throughput":
+        return "throughput [GB/s]"
     if metric == "speedup":
         return "speedup vs original"
     raise ValueError(metric)
@@ -174,7 +237,7 @@ def main():
     parser = argparse.ArgumentParser(description="Plot grouped bars from rq-paper-rewrite-bench CSV.")
     parser.add_argument("csv", nargs="?", default="target/paper-rewrite-bench.csv")
     parser.add_argument("-o", "--output", default="target/paper-rewrite-bench.png")
-    parser.add_argument("--metric", choices=["mean-ms", "speedup"], default="mean-ms")
+    parser.add_argument("--metric", choices=["mean-ms", "throughput", "speedup"], default="throughput")
     args = parser.parse_args()
 
     grouped = read_rows(args.csv)
