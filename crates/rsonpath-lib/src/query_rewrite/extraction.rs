@@ -129,7 +129,6 @@ impl TreeMinimizer {
                 array_transitions,
                 State::new(0),
             ));
-
         }
 
         Automaton::from_states(state_table_vec)

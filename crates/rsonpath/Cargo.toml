@@ -38,6 +38,11 @@ bench = false
 path = "./src/bin/rq_rewrite_best.rs"
 name = "rq-rewrite-best"
 
+[[bin]]
+bench = false
+path = "./src/bin/rq_paper_rewrite_bench.rs"
+name = "rq-paper-rewrite-bench"
+
 [dependencies]
 clap = { version = "4.6.0", features = ["derive", "wrap_help"] }
 color-eyre = { version = "0.6.5", default-features = false }

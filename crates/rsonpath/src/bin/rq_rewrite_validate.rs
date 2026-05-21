@@ -1,6 +1,6 @@
 use clap::Parser;
 use color_eyre::eyre::Result;
-use rsonpath::rewrite_benchmark::{render_report, run_benchmark, RewriteBenchmarkConfig};
+use rsonpath::rewrite_tooling::{render_report, run_benchmark, RewriteBenchmarkConfig};
 
 #[derive(Parser, Debug)]
 #[clap(name = "rq-rewrite-validate", author, version, about)]

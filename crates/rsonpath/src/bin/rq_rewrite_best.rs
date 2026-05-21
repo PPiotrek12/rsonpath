@@ -1,6 +1,6 @@
 use clap::{Parser, ValueEnum};
 use color_eyre::eyre::Result;
-use rsonpath::rewrite_benchmark::{render_report, select_best_rewrite, RewriteBenchmarkConfig};
+use rsonpath::rewrite_tooling::{render_report, select_best_rewrite, RewriteBenchmarkConfig};
 
 #[derive(Parser, Debug)]
 #[clap(name = "rq-rewrite-best", author, version, about)]
