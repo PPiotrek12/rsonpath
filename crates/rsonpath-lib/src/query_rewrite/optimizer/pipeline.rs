@@ -1,7 +1,7 @@
 use std::collections::HashSet;
 
 use crate::automaton::{error::CompilerError, Automaton};
-use crate::query_rewrite::extraction::extract_automaton_from_file;
+use crate::query_rewrite::extraction2::extract_automaton_from_file;
 use crate::query_rewrite::{
     json_schema_parser,
     optimizer::{PrefixToDescendantGenerator, QueryCandidateGenerator, QueryRewriteError},

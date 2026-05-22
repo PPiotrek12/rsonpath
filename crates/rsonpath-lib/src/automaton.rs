@@ -162,6 +162,11 @@ impl Automaton {
         Self { states }
     }
 
+    #[inline]
+    pub(crate) fn num_states(&self) -> usize {
+        self.states.len()
+    }
+
     /// Convert a [`JsonPathQuery`] into a minimal deterministic automaton.
     ///
     /// # Errors

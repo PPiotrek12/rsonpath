@@ -26,7 +26,7 @@ pub(super) fn minimize(nfa: NondeterministicAutomaton) -> Result<Automaton, Comp
         checkpoints: VecMap::new(),
         active_superstates: smallvec![],
         dfa_states: vec![],
-        accepting: SmallSet256::default(),
+        accepting: std::collections::BTreeSet::new(), //// TODO: use something smart later
     };
 
     minimizer.run()
@@ -44,7 +44,7 @@ pub(super) struct Minimizer {
     /// All superstates created thus far, in order matching the `superstates` map.
     dfa_states: Vec<StateTable>,
     /// Set of activated DFA states that are accepting.
-    accepting: SmallSet256,
+    accepting: std::collections::BTreeSet<u32>, /// TODO - use something smart
 }
 
 #[derive(Debug)]
@@ -182,7 +182,7 @@ impl Minimizer {
     ) -> StateAttributes {
         let mut attrs = StateAttributesBuilder::new();
 
-        if self.accepting.contains(id.0) {
+        if self.accepting.contains(&id.0) {
             debug!("{id} is accepting");
             attrs = attrs.accepting();
         }
@@ -191,11 +191,11 @@ impl Minimizer {
             attrs = attrs.rejecting();
         }
 
-        if self.accepting.contains(fallback.0)
+        if self.accepting.contains(&fallback.0)
             || array_transitions
                 .iter()
-                .any(|x| self.accepting.contains(x.target_state().0))
-            || member_transitions.iter().any(|(_, s)| self.accepting.contains(s.0))
+                .any(|x| self.accepting.contains(&x.target_state().0))
+            || member_transitions.iter().any(|(_, s)| self.accepting.contains(&s.0))
         {
             debug!("{id} has transitions to accepting");
             attrs = attrs.transitions_to_accepting();
@@ -206,7 +206,7 @@ impl Minimizer {
         }
         if array_transitions
             .iter()
-            .any(|x| self.accepting.contains(x.target_state().0))
+            .any(|x| self.accepting.contains(&x.target_state().0))
         {
             debug!("{id} has an accepting array index transition");
             attrs = attrs.has_array_transition_to_accepting();
@@ -1323,8 +1323,8 @@ mod tests {
     /// This function relabels the states in a canonical way so that they can be compared for equality.
     fn make_canonical(dfa: &mut Automaton) {
         let mut translation = vec![0; dfa.states.len()];
-        let mut stack = vec![1_u8];
-        let mut i = 1_u8;
+        let mut stack: Vec<u32> = vec![1];
+        let mut i: u32 = 1;
 
         while let Some(state) = stack.pop() {
             if state == 0 || translation[state as usize] != 0 {
@@ -1342,7 +1342,7 @@ mod tests {
             }
         }
 
-        let mut idx = 0_u8;
+        let mut idx = 0_u32;
         let mut current_placement = translation.clone();
         while (idx as usize) < translation.len() {
             let c_idx = current_placement[idx as usize];

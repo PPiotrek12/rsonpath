@@ -23,7 +23,6 @@ pub(crate) fn new_array_transition(target: State) -> ArrayTransition {
     ArrayTransition::new(ArrayTransitionLabel::Slice(slice), target)
 }
 
-
 /// Helper that creates an all-rejecting state
 pub(crate) fn new_dumpster_state() -> StateTable {
     StateTable::new(StateAttributes::REJECTING, vec![].into(), vec![].into(), State::new(0))

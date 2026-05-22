@@ -4,9 +4,7 @@ use log::trace;
 use serde_json::Value;
 use smallvec::SmallVec;
 
-use crate::automaton::{
-    ArrayTransition, Automaton, MemberTransition, State, StateAttributes, StateTable,
-};
+use crate::automaton::{ArrayTransition, Automaton, MemberTransition, State, StateAttributes, StateTable};
 use crate::query_rewrite::helpers::{self, new_array_transition, new_member_transition};
 
 /// This struct represents a type definition in the subset of JSON Schema relevant for our use case.
@@ -365,11 +363,12 @@ fn construct_automaton_from_types(types: &[SchemaType], root_name: &str) -> Resu
         let mut array_transitions: SmallVec<[ArrayTransition; 2]> = SmallVec::new();
 
         for child in &t.properties {
-            let child_idx: u8 = match &child.child_type {
+            let child_idx: u32 = match &child.child_type {
                 ChildType::Type(type_name) => *type_to_state
                     .get(type_name)
-                    .ok_or_else(|| ParsingError::type_not_found(&t.type_name, type_name))?,
-                ChildType::Primitive => (state_count + 1) as u8,
+                    .ok_or_else(|| ParsingError::type_not_found(&t.type_name, type_name))?
+                    as u32,
+                ChildType::Primitive => (state_count + 1) as u32,
                 ChildType::Array(_) => {
                     unreachable!("Arrays should have been unrolled into separate types during parsing")
                 }

@@ -174,13 +174,18 @@ pub struct State(
     // Only `pub` for the `automaton` module, since it needs to construct and deconstruct the wrapper.
     // Everyone outside should *not* know this detail and must not rely on it.
     // This representation may change at any point in the future.
-    pub(super) u8,
+    pub(super) u32,
 );
 
 impl State {
     #[inline(always)]
-    pub(crate) fn new(id: u8) -> Self {
+    pub(crate) fn new(id: u32) -> Self {
         Self(id)
+    }
+
+    #[inline(always)]
+    pub(crate) fn id(self) -> u32 {
+        self.0
     }
 }
 

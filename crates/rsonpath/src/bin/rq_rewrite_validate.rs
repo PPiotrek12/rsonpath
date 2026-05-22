@@ -1,5 +1,6 @@
 use clap::Parser;
 use color_eyre::eyre::{Result, WrapErr as _};
+use log::LevelFilter;
 use rsonpath_lib::{
     engine::{Compiler as _, Engine as _, RsonpathEngine},
     input::OwnedBytes,
@@ -7,7 +8,11 @@ use rsonpath_lib::{
     query_rewrite::optimize_query_without_schema_file,
 };
 use rsonpath_syntax::JsonPathQuery;
+use simple_logger::SimpleLogger;
 use std::{cmp, fs, time::Instant};
+
+/// `log` target used by `rsonpath_lib::query_rewrite::extraction2` progress / timing output.
+const EXTRACTION2_LOG_TARGET: &str = "rsonpath::query_rewrite::extraction2";
 
 #[derive(Parser, Debug)]
 #[clap(name = "rq-rewrite-validate", author, version, about)]
@@ -30,6 +35,9 @@ struct Args {
     /// Number of warm-up runs before timed execution.
     #[clap(long, default_value_t = 1)]
     warmup: usize,
+    /// Print `log` output from document automaton extraction (`extraction2`): debug, or trace with `-vv`.
+    #[clap(short, long, action = clap::ArgAction::Count)]
+    verbose: u8,
 }
 
 #[derive(Clone)]
@@ -54,11 +62,28 @@ fn main() -> Result<()> {
     color_eyre::install()?;
 
     let args = Args::parse();
+    init_log(args.verbose).wrap_err("Logger setup failed.")?;
     let rows = run_benchmark(&args)?;
 
     println!("{}", render_report(&args, &rows));
 
     Ok(())
+}
+
+/// Default: only `extraction2` emits logs at `debug`. `-v` → `debug` on that module; `-vv` → `trace`.
+/// You can still set `RUST_LOG` to a global level (e.g. `RUST_LOG=info`); per-module overrides apply when valid.
+fn init_log(verbose: u8) -> Result<()> {
+    let extraction_level = match verbose {
+        0 => LevelFilter::Off,
+        1 => LevelFilter::Debug,
+        _ => LevelFilter::Trace,
+    };
+
+    let mut logger = SimpleLogger::new().with_level(LevelFilter::Warn);
+    if extraction_level != LevelFilter::Off {
+        logger = logger.with_module_level(EXTRACTION2_LOG_TARGET, extraction_level);
+    }
+    logger.env().init().wrap_err("Logger configuration error.")
 }
 
 fn run_benchmark(args: &Args) -> Result<Vec<BenchmarkRow>> {

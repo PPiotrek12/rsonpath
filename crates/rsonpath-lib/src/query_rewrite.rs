@@ -1,3 +1,4 @@
+pub mod preprocessor;
 pub mod extraction;
 pub(crate) mod helpers;
 pub mod json_schema_parser;
