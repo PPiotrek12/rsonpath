@@ -92,8 +92,7 @@ fn document_successors(automaton: &Automaton, from: State, sym: &DocumentSymbol)
         }
         DocumentSymbol::Member(label) => {
             for (pattern, target) in table.member_transitions() {
-                let member_label = std::str::from_utf8(pattern.unquoted())
-                    .expect("member label must be valid UTF-8");
+                let member_label = std::str::from_utf8(pattern.unquoted()).expect("member label must be valid UTF-8");
                 if member_label == label {
                     out.push(*target);
                 }
@@ -147,7 +146,7 @@ fn subset_determinize(nfa: &Automaton, alphabet: &[DocumentSymbol], initial: u32
             );
         }
         if dequeue_count % DETERMINIZE_DEQUEUE_EVERY == 0 {
-            log::warn!(
+            log::trace!(
                 target: LOG_TARGET,
                 "determinize: BFS — dequeues={}, queue_len={}, dfa_states_so_far={}, elapsed={:?}",
                 dequeue_count,
@@ -165,7 +164,7 @@ fn subset_determinize(nfa: &Automaton, alphabet: &[DocumentSymbol], initial: u32
             if cur_len >= DETERMINIZE_LARGE_SUBSET
                 && (sym_idx == 0 || sym_idx % DETERMINIZE_SYMBOL_HEARTBEAT == 0 || sym_idx + 1 == sym_count)
             {
-                log::warn!(
+                log::trace!(
                     target: LOG_TARGET,
                     "determinize: sid={} subset_size={} symbol_idx={}/{} inner_elapsed={:?} total_elapsed={:?}",
                     sid,

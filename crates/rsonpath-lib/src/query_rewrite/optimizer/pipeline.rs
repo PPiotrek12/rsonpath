@@ -53,7 +53,11 @@ impl<'a> QueryRewritePipeline<'a> {
                 continue;
             };
 
-            if !has_nonempty_intersection_of_symmetric_difference(&original_automaton, &candidate_automaton, d) {
+            let has_symmetric_difference =
+                has_nonempty_intersection_of_symmetric_difference(&original_automaton, &candidate_automaton, d);
+            let is_equivalent = !has_symmetric_difference;
+
+            if is_equivalent {
                 equivalent.push(candidate);
             }
         }

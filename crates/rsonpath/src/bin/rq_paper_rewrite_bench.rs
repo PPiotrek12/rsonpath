@@ -2,7 +2,7 @@ use clap::Parser;
 use color_eyre::eyre::{Result, WrapErr as _};
 use rsonpath::rewrite_logging;
 use rsonpath::rewrite_tooling::{
-    benchmark_fixed_query, select_best_rewrite, BenchmarkRow, FixedQueryBenchmarkConfig, RewriteBenchmarkConfig,
+    benchmark_fixed_query, run_benchmark, BenchmarkRow, FixedQueryBenchmarkConfig, RewriteBenchmarkConfig,
 };
 use std::{fs, path::PathBuf};
 
@@ -160,7 +160,7 @@ fn main() -> Result<()> {
 
         eprintln!("Benchmarking {} on {}...", case.id, case.dataset);
         let document_file = document_file.to_string_lossy().into_owned();
-        let selection = select_best_rewrite(&RewriteBenchmarkConfig {
+        let report = run_benchmark(&RewriteBenchmarkConfig {
             query: case.original.to_string(),
             schema_file: None,
             no_schema: true,
@@ -168,10 +168,9 @@ fn main() -> Result<()> {
             iterations: args.iterations,
             warmup: args.warmup,
         })
-        .wrap_err_with(|| format!("failed to select automatic rewrite for {}", case.id))?;
+        .wrap_err_with(|| format!("failed to benchmark automatic rewrites for {}", case.id))?;
 
-        let original = selection
-            .report
+        let original = report
             .rows
             .iter()
             .find(|row| row.role == "original")
@@ -184,20 +183,20 @@ fn main() -> Result<()> {
             case,
             "paper_original",
             None,
-            original,
-            original_throughput,
-        );
-        push_result(
-            &mut results,
-            case,
-            "auto_best",
-            None,
-            selection.row.clone(),
+            original.clone(),
             original_throughput,
         );
 
-        for (rank, row) in selection
-            .report
+        push_result(
+            &mut results,
+            case,
+            "auto_candidate",
+            Some(1),
+            original.clone(),
+            original_throughput,
+        );
+
+        for (rank, row) in report
             .rows
             .iter()
             .filter(|row| row.role == "rewrite")
@@ -208,22 +207,29 @@ fn main() -> Result<()> {
                 &mut results,
                 case,
                 "auto_candidate",
-                Some(rank + 1),
+                Some(rank + 2),
                 row,
                 original_throughput,
             );
         }
 
         if let Some(manual) = case.manual {
-            let manual = benchmark_fixed_query(&FixedQueryBenchmarkConfig {
-                baseline_query: case.original.to_string(),
-                query: manual.to_string(),
-                role: "paper_manual",
-                document_file: document_file.clone(),
-                iterations: args.iterations,
-                warmup: args.warmup,
-            })
-            .wrap_err_with(|| format!("failed to benchmark manual rewrite for {}", case.id))?;
+            let manual_query = rsonpath_syntax::parse(manual)
+                .wrap_err_with(|| format!("failed to parse manual rewrite for {}", case.id))?
+                .to_string();
+            let manual = if let Some(row) = report.rows.iter().find(|row| row.query == manual_query) {
+                row.clone()
+            } else {
+                benchmark_fixed_query(&FixedQueryBenchmarkConfig {
+                    baseline_query: case.original.to_string(),
+                    query: manual.to_string(),
+                    role: "paper_manual",
+                    document_file: document_file.clone(),
+                    iterations: args.iterations,
+                    warmup: args.warmup,
+                })
+                .wrap_err_with(|| format!("failed to benchmark manual rewrite for {}", case.id))?
+            };
             push_result(&mut results, case, "paper_manual", None, manual, original_throughput);
         }
     }
