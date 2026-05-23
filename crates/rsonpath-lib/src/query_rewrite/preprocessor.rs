@@ -12,6 +12,85 @@ use crate::{
 use serde_json::{from_str, Value};
 use smallvec::SmallVec;
 
+const LOG_TARGET: &str = concat!("rsonpath_lib::query_rewrite", "::preprocessor");
+
+/// Counts collected while building a document NFA.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct JsonNfaBuildMetrics {
+    pub json_node_count: usize,
+    pub nfa_state_count: usize,
+}
+
+/// Configuration for [`JsonNfaBuilder`].
+#[derive(Debug, Clone, Copy)]
+pub struct JsonNfaBuilderConfig {
+    pub hash_cons: bool,
+}
+
+impl Default for JsonNfaBuilderConfig {
+    fn default() -> Self {
+        Self { hash_cons: true }
+    }
+}
+
+/// JSON → document NFA ([`Automaton`] before determinization).
+#[derive(Debug, Clone)]
+pub struct JsonNfaBuilder {
+    config: JsonNfaBuilderConfig,
+}
+
+impl Default for JsonNfaBuilder {
+    fn default() -> Self {
+        Self::new(JsonNfaBuilderConfig::default())
+    }
+}
+
+impl JsonNfaBuilder {
+    #[must_use]
+    pub const fn new(config: JsonNfaBuilderConfig) -> Self {
+        Self { config }
+    }
+
+    #[must_use]
+    pub const fn config(&self) -> JsonNfaBuilderConfig {
+        self.config
+    }
+
+    #[must_use]
+    pub fn from_value(&self, value: &Value) -> Automaton {
+        let (automaton, metrics) = self.build(value);
+        log::info!(
+            target: LOG_TARGET,
+            "Initial automaton built with {} nodes processed to {} states" , metrics.json_node_count, metrics.nfa_state_count,
+        );
+        automaton
+    }
+
+    #[must_use]
+    pub fn build(&self, value: &Value) -> (Automaton, JsonNfaBuildMetrics) {
+        log::debug!(target: LOG_TARGET, "preprocessing started");
+        let mut inner = JsonTreeBuilder::new(self.config);
+        let root_hash = inner.build_state(value);
+        let metrics = JsonNfaBuildMetrics {
+            json_node_count: inner.json_node_count,
+            nfa_state_count: inner.states.len(),
+        };
+        (inner.build_automaton(root_hash), metrics)
+    }
+
+    #[must_use]
+    pub fn from_json(&self, json: &str) -> Automaton {
+        let value: Value = from_str(json).expect("Invalid Json Provided");
+        self.from_value(&value)
+    }
+
+    #[must_use]
+    pub fn from_file(&self, path: &str) -> Automaton {
+        let json = fs::read_to_string(path).expect("Error during file reading");
+        self.from_json(&json)
+    }
+}
+
 /// Can be extended to more complex type if needed
 #[derive(PartialEq, PartialOrd, Eq, Ord, Hash, Copy, Clone, Debug)]
 struct StateHash {
@@ -42,24 +121,34 @@ impl TreeState {
         let mut hasher = DefaultHasher::new();
         self.transitions.hash(&mut hasher);
 
-        StateHash { hash: hasher.finish() }
+        StateHash {
+            hash: hasher.finish(),
+        }
     }
 }
 
-struct TreeMinimizer {
+struct JsonTreeBuilder {
     states: HashMap<StateHash, TreeState>,
+    json_node_count: usize,
+    config: JsonNfaBuilderConfig,
 }
 
-impl TreeMinimizer {
-    fn new() -> Self {
+impl JsonTreeBuilder {
+    fn new(config: JsonNfaBuilderConfig) -> Self {
         let mut leaf = TreeState::new();
         let mut initial_map: HashMap<StateHash, TreeState> = HashMap::new();
         initial_map.insert(leaf.hash(), leaf);
 
-        Self { states: initial_map }
+        Self {
+            states: initial_map,
+            json_node_count: 0,
+            config,
+        }
     }
 
     fn build_state(&mut self, current_json: &Value) -> StateHash {
+        self.json_node_count += 1;
+
         let mut state = TreeState::new();
 
         match current_json {
@@ -78,7 +167,13 @@ impl TreeMinimizer {
             _ => {}
         }
 
-        let state_hash = state.hash();
+        let state_hash = if self.config.hash_cons {
+            state.hash()
+        } else {
+            StateHash {
+                hash: self.json_node_count as u64,
+            }
+        };
 
         let _ = self.states.insert(state_hash, state);
 
@@ -95,7 +190,6 @@ impl TreeMinimizer {
             .position(|&hash| hash == root_hash)
             .expect("Hash for root has to be in states");
         keys.swap(root_pos, 0);
-        dbg!("count of states: {:?}", self.states.len());
 
         let remapped_hashes: HashMap<StateHash, State> = keys
             .iter()
@@ -134,27 +228,4 @@ impl TreeMinimizer {
 
         Automaton::from_states(state_table_vec)
     }
-}
-
-#[inline]
-#[must_use]
-pub fn extract_automaton_from_file(filename: &str) -> Automaton {
-    let json = fs::read_to_string(filename).expect("Error during file reading");
-    extract_automaton_from_json(&json)
-}
-
-#[inline]
-#[must_use]
-pub fn extract_automaton_from_json(json: &str) -> Automaton {
-    let value: Value = from_str(json).expect("Invalid Json Provided");
-    extract_automaton_from_value(&value)
-}
-
-/// Build a document [`Automaton`] (NFA) from a parsed JSON value.
-#[inline]
-#[must_use]
-pub(crate) fn extract_automaton_from_value(value: &Value) -> Automaton {
-    let mut minimizer = TreeMinimizer::new();
-    let root_hash = minimizer.build_state(value);
-    minimizer.build_automaton(root_hash)
 }

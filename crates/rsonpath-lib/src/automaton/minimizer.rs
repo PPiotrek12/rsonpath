@@ -44,7 +44,7 @@ pub(super) struct Minimizer {
     /// All superstates created thus far, in order matching the `superstates` map.
     dfa_states: Vec<StateTable>,
     /// Set of activated DFA states that are accepting.
-    accepting: std::collections::BTreeSet<u32>, /// TODO - use something smart
+    accepting: std::collections::BTreeSet<u32>, // TODO - use something smart
 }
 
 #[derive(Debug)]

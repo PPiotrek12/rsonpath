@@ -1,13 +1,15 @@
 use std::collections::HashSet;
 
 use crate::automaton::{error::CompilerError, Automaton};
-use crate::query_rewrite::extraction2::extract_automaton_from_file;
+use crate::query_rewrite::extraction::extract_automaton_from_file;
 use crate::query_rewrite::{
     json_schema_parser,
     optimizer::{PrefixToDescendantGenerator, QueryCandidateGenerator, QueryRewriteError},
     product::has_nonempty_intersection_of_symmetric_difference,
 };
 use rsonpath_syntax::JsonPathQuery;
+
+const LOG_TARGET: &str = "rsonpath_lib::query_rewrite::optimizer::pipeline";
 
 /// Generator-agnostic query rewrite pipeline.
 ///
@@ -42,6 +44,7 @@ impl<'a> QueryRewritePipeline<'a> {
         let mut equivalent = Vec::new();
 
         for candidate in self.candidates(query) {
+            log::debug!(target: LOG_TARGET, "candidate: {}", candidate.to_string());
             if !seen.insert(candidate.clone()) {
                 continue;
             }
@@ -129,6 +132,9 @@ pub fn optimize_query_without_schema_file(
 ) -> Result<Vec<JsonPathQuery>, QueryRewriteError> {
     let generator = PrefixToDescendantGenerator;
     let automaton = extract_automaton_from_file(document_path);
+
+    log::debug!(target: LOG_TARGET, "Optimizing query: {}", query.to_string());
+
     QueryRewritePipeline::new(vec![&generator]).optimize_query_string(query, &automaton)
 }
 
