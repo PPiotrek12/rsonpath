@@ -163,7 +163,7 @@ impl Automaton {
     }
 
     #[inline]
-    pub(crate) fn num_states(&self) -> usize {
+    pub fn num_states(&self) -> usize {
         self.states.len()
     }
 
