@@ -27,7 +27,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Harden Runner
-        uses: step-security/harden-runner@5ef0c079ce82195b2a36a210272d6b661572d83e # v2.14.2
+        uses: step-security/harden-runner@9af89fc71515a100421586dfdb3dc9c984fbf411 # v2.19.4
         with:
           egress-policy: block
           allowed-endpoints: >
@@ -45,7 +45,7 @@ jobs:
         with:
           submodules: true
       - name: Install Rust toolchain (stable)
-        uses: dtolnay/rust-toolchain@f7ccc83f9ed1e5b9c81d8a67d7ad1a747e22a561 # master
+        uses: dtolnay/rust-toolchain@3c5f7ea28cd621ae0bf5283f0e981fb97b8a7af9 # master
         with:
           toolchain: stable
           target: x86_64-unknown-linux-gnu
@@ -53,7 +53,7 @@ jobs:
         run: rustup override set stable
       - name: Cache restore (Cargo)
         id: cache-restore-cargo
-        uses: actions/cache@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
         with:
           path: |
             ~/.cargo/bin/
@@ -66,7 +66,7 @@ jobs:
         id: build-test-codegen
         run: cargo build -p rsonpath-test -vv
       - name: Upload generated tests as artifact
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: rsonpath-test-documents
           path: |

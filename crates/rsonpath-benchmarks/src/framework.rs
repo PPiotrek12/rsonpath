@@ -5,7 +5,6 @@ use crate::{
     implementations::{
         jsonpath_rust::{JsonpathRust, JsonpathRustError},
         rsonpath::{Rsonpath, RsonpathCount, RsonpathError, RsonpathMmap, RsonpathMmapCount},
-        rust_jsurfer::{JSurfer, JSurferError},
         serde_json_path::{SerdeJsonPath, SerdeJsonPathError},
     },
 };
@@ -21,7 +20,6 @@ pub mod implementation;
 pub enum BenchTarget<'q> {
     RsonpathMmap(&'q str, ResultType),
     Rsonpath(&'q str, ResultType),
-    JSurfer(&'q str),
     JsonpathRust(&'q str),
     SerdeJsonPath(&'q str),
 }
@@ -150,15 +148,8 @@ impl Benchset {
             .add_target(BenchTarget::RsonpathMmap(query, ResultType::Count))
     }
 
-    pub fn add_all_targets_except_jsurfer(self, query: &str) -> Result<Self, BenchmarkError> {
-        self.add_target(BenchTarget::RsonpathMmap(query, ResultType::Full))?
-            .add_target(BenchTarget::JsonpathRust(query))?
-            .add_target(BenchTarget::SerdeJsonPath(query))
-    }
-
     pub fn add_all_targets(self, query: &str) -> Result<Self, BenchmarkError> {
         self.add_target(BenchTarget::RsonpathMmap(query, ResultType::Full))?
-            .add_target(BenchTarget::JSurfer(query))?
             .add_target(BenchTarget::JsonpathRust(query))?
             .add_target(BenchTarget::SerdeJsonPath(query))
     }
@@ -219,11 +210,6 @@ impl Target for BenchTarget<'_> {
                 let prepared = prepare(rsonpath, file_path, q, load_ahead_of_time, compile_ahead_of_time)?;
                 Ok(Box::new(prepared))
             }
-            BenchTarget::JSurfer(q) => {
-                let jsurfer = JSurfer::new()?;
-                let prepared = prepare(jsurfer, file_path, q, load_ahead_of_time, compile_ahead_of_time)?;
-                Ok(Box::new(prepared))
-            }
             BenchTarget::JsonpathRust(q) => {
                 let jsonpath_rust = JsonpathRust::new()?;
                 let prepared = prepare(jsonpath_rust, file_path, q, load_ahead_of_time, compile_ahead_of_time)?;
@@ -263,11 +249,6 @@ impl Target for BenchTarget<'_> {
             BenchTarget::RsonpathMmap(q, ResultType::Count) => {
                 let rsonpath = RsonpathMmapCount::new()?;
                 let prepared = prepare_with_id(rsonpath, id, file_path, q, load_ahead_of_time, compile_ahead_of_time)?;
-                Ok(Box::new(prepared))
-            }
-            BenchTarget::JSurfer(q) => {
-                let jsurfer = JSurfer::new()?;
-                let prepared = prepare_with_id(jsurfer, id, file_path, q, load_ahead_of_time, compile_ahead_of_time)?;
                 Ok(Box::new(prepared))
             }
             BenchTarget::JsonpathRust(q) => {
@@ -348,12 +329,6 @@ pub enum BenchmarkError {
         #[source]
         #[from]
         RsonpathError,
-    ),
-    #[error("error preparing JSurfer bench: {0}")]
-    JSurferError(
-        #[source]
-        #[from]
-        JSurferError,
     ),
     #[error("error preparing JsonpathRust bench: {0}")]
     JsonpathRust(

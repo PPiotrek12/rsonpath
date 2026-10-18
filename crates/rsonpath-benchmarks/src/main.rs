@@ -2,7 +2,7 @@ use clap::{Parser, ValueEnum};
 use color_eyre::eyre::Result;
 use rsonpath_benchmarks::framework::implementation::Implementation;
 use rsonpath_benchmarks::implementations::{
-    jsonpath_rust::JsonpathRust, rsonpath::RsonpathMmap, rust_jsurfer::JSurfer, serde_json_path::SerdeJsonPath,
+    jsonpath_rust::JsonpathRust, rsonpath::RsonpathMmap, serde_json_path::SerdeJsonPath,
 };
 
 fn main() -> Result<()> {
@@ -11,7 +11,6 @@ fn main() -> Result<()> {
 
     match args.engine {
         ImplArg::Rsonpath => run(RsonpathMmap::new()?, &args.query, &args.file_path),
-        ImplArg::JSurfer => run(JSurfer::new()?, &args.query, &args.file_path),
         ImplArg::JsonpathRust => run(JsonpathRust::new()?, &args.query, &args.file_path),
         ImplArg::SerdeJsonPath => run(SerdeJsonPath::new()?, &args.query, &args.file_path),
     }
@@ -44,8 +43,6 @@ struct Args {
 enum ImplArg {
     /// Use rsonpath.
     Rsonpath,
-    /// Use JSurfer via JNI.
-    JSurfer,
     /// Use the jsonpath-rust crate.
     JsonpathRust,
     /// Use the serde_json_path crate.

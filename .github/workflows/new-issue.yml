@@ -14,7 +14,7 @@ jobs:
       repository-projects: write
     steps:
       - name: Harden Runner
-        uses: step-security/harden-runner@5ef0c079ce82195b2a36a210272d6b661572d83e # v2.14.2
+        uses: step-security/harden-runner@9af89fc71515a100421586dfdb3dc9c984fbf411 # v2.19.4
         with:
           egress-policy: audit
 
@@ -26,7 +26,7 @@ jobs:
           label-id: "LA_kwDOHodxeM8AAAABA8dlvA"
           token: ${{ secrets.GITHUB_TOKEN }}
       - name: Issue comment tag
-        uses: devops-actions/issue-comment-tag@6dbf2b1d509b1255e744349f7b0d5c1f723b22ef # v0.1.9
+        uses: devops-actions/issue-comment-tag@3a605c5f21e15e5b963c866421bf4189bcc32310 # v0.1.10
         with:
           # The tag of the team to mention in the issue comment
           team: V0ldek
@@ -39,7 +39,7 @@ jobs:
           # The GitHub token to use to create a new comment with. Use `secrets.GITHUB_TOKEN` to inject it
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Add To GitHub projects
-        uses: actions/add-to-project@244f685bbc3b7adfa8466e08b698b5577571133e # v1.0.2
+        uses: actions/add-to-project@5afcf98fcd03f1c2f92c3c83f58ae24323cc57fd # v2.0.0
         with:
           # URL of the project to add issues to
           project-url: https://github.com/users/V0ldek/projects/1

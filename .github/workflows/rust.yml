@@ -88,7 +88,7 @@ jobs:
             rustflags: "-C link-arg=-fuse-ld=lld --deny warnings"
     steps:
       - name: Harden Runner
-        uses: step-security/harden-runner@5ef0c079ce82195b2a36a210272d6b661572d83e # v2.14.2
+        uses: step-security/harden-runner@9af89fc71515a100421586dfdb3dc9c984fbf411 # v2.19.4
         with:
           egress-policy: block
           allowed-endpoints: >
@@ -107,7 +107,7 @@ jobs:
       - name: Cache restore (MinGW)
         id: cache-restore-mingw
         if: matrix.needs-mingw != ''
-        uses: actions/cache@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
         with:
           path: |
             C:\ProgramData\chocolatey\lib\mingw
@@ -131,7 +131,7 @@ jobs:
         with:
           submodules: true
       - name: Install Rust toolchain (${{ matrix.toolchain }})
-        uses: dtolnay/rust-toolchain@f7ccc83f9ed1e5b9c81d8a67d7ad1a747e22a561 # master
+        uses: dtolnay/rust-toolchain@3c5f7ea28cd621ae0bf5283f0e981fb97b8a7af9 # master
         with:
           toolchain: ${{ matrix.toolchain }}
           target: ${{ matrix.target_triple }}
@@ -139,7 +139,7 @@ jobs:
         run: rustup override set ${{ matrix.toolchain }}
       - name: Cache restore (Cargo)
         id: cache-restore-cargo
-        uses: actions/cache@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
         with:
           path: |
             ~/.cargo/bin/
@@ -149,7 +149,7 @@ jobs:
             target/
           key: ${{ matrix.toolchain }}-${{ matrix.target_triple }}-cargo-${{ hashFiles('**/Cargo.toml') }}
       - name: cargo install cargo-hack
-        uses: baptiste0928/cargo-install@b687c656bda5733207e629b50a22bf68974a0305 # v3.3.2
+        uses: baptiste0928/cargo-install@f204293d9709061b7bc1756fec3ec4e2cd57dec0 # v3.4.0
         with:
           # Name of the crate to install
           crate: cargo-hack
@@ -160,7 +160,7 @@ jobs:
         env:
           RUSTFLAGS: ${{ matrix.rustflags }}
       - name: Download rsonpath-test artifact
-        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: ${{ needs.test-gen.outputs.artifact-name }}
           path: ${{ needs.test-gen.outputs.artifact-path }}
@@ -192,7 +192,7 @@ jobs:
           - nosimd;slow_quotes;slow_popcnt
     steps:
       - name: Harden Runner
-        uses: step-security/harden-runner@5ef0c079ce82195b2a36a210272d6b661572d83e # v2.14.2
+        uses: step-security/harden-runner@9af89fc71515a100421586dfdb3dc9c984fbf411 # v2.19.4
         with:
           egress-policy: audit
 
@@ -203,13 +203,13 @@ jobs:
         with:
           submodules: true
       - name: Install Rust toolchain (stable)
-        uses: dtolnay/rust-toolchain@f7ccc83f9ed1e5b9c81d8a67d7ad1a747e22a561 # master
+        uses: dtolnay/rust-toolchain@3c5f7ea28cd621ae0bf5283f0e981fb97b8a7af9 # master
         with:
           toolchain: stable
           target: ${{ matrix.target_triple }}
       - name: Cache restore (Cargo)
         id: cache-restore-cargo
-        uses: actions/cache@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
         with:
           path: |
             ~/.cargo/bin/
@@ -223,7 +223,7 @@ jobs:
         env:
           RUSTFLAGS: "-C link-arg=-fuse-ld=lld --deny warnings"
       - name: Download rsonpath-test artifact
-        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: ${{ needs.test-gen.outputs.artifact-name }}
           path: ${{ needs.test-gen.outputs.artifact-path }}
@@ -248,7 +248,7 @@ jobs:
           - nosimd;slow_quotes;slow_popcnt
     steps:
       - name: Harden Runner
-        uses: step-security/harden-runner@5ef0c079ce82195b2a36a210272d6b661572d83e # v2.14.2
+        uses: step-security/harden-runner@9af89fc71515a100421586dfdb3dc9c984fbf411 # v2.19.4
         with:
           egress-policy: audit
 
@@ -259,13 +259,13 @@ jobs:
         with:
           submodules: true
       - name: Install Rust toolchain (stable)
-        uses: dtolnay/rust-toolchain@f7ccc83f9ed1e5b9c81d8a67d7ad1a747e22a561 # master
+        uses: dtolnay/rust-toolchain@3c5f7ea28cd621ae0bf5283f0e981fb97b8a7af9 # master
         with:
           toolchain: stable
           target: ${{ matrix.target_triple }}
       - name: Cache restore (Cargo)
         id: cache-restore-cargo
-        uses: actions/cache@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
         with:
           path: |
             ~/.cargo/bin/
@@ -279,7 +279,7 @@ jobs:
         env:
           RUSTFLAGS: "-C link-arg=-fuse-ld=lld --deny warnings"
       - name: Download rsonpath-test artifact
-        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: ${{ needs.test-gen.outputs.artifact-name }}
           path: ${{ needs.test-gen.outputs.artifact-path }}
@@ -302,7 +302,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Harden Runner
-        uses: step-security/harden-runner@5ef0c079ce82195b2a36a210272d6b661572d83e # v2.14.2
+        uses: step-security/harden-runner@9af89fc71515a100421586dfdb3dc9c984fbf411 # v2.19.4
         with:
           egress-policy: audit
 
@@ -312,7 +312,7 @@ jobs:
       - name: Install lld
         run: sudo apt update && sudo apt install lld
       - name: Install Rust toolchain (${{ matrix.toolchain }})
-        uses: dtolnay/rust-toolchain@f7ccc83f9ed1e5b9c81d8a67d7ad1a747e22a561 # master
+        uses: dtolnay/rust-toolchain@3c5f7ea28cd621ae0bf5283f0e981fb97b8a7af9 # master
         with:
           toolchain: ${{ matrix.toolchain }}
           components: clippy, rustfmt
@@ -320,7 +320,7 @@ jobs:
         run: rustup override set ${{ matrix.toolchain }}
       - name: Cache restore
         id: cache-restore
-        uses: actions/cache@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
         with:
           path: |
             ~/.cargo/bin/
@@ -347,7 +347,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Harden Runner
-        uses: step-security/harden-runner@5ef0c079ce82195b2a36a210272d6b661572d83e # v2.14.2
+        uses: step-security/harden-runner@9af89fc71515a100421586dfdb3dc9c984fbf411 # v2.19.4
         with:
           egress-policy: audit
 
@@ -355,7 +355,7 @@ jobs:
         with:
           submodules: true
       - name: Install Rust toolchain (nightly)
-        uses: dtolnay/rust-toolchain@f7ccc83f9ed1e5b9c81d8a67d7ad1a747e22a561 # master
+        uses: dtolnay/rust-toolchain@3c5f7ea28cd621ae0bf5283f0e981fb97b8a7af9 # master
         with:
           toolchain: nightly
       - name: Override toolchain
@@ -364,7 +364,7 @@ jobs:
         run: sudo apt install lld
       - name: Cache restore
         id: cache-restore
-        uses: actions/cache@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
         with:
           path: |
             ~/.cargo/bin/
@@ -387,7 +387,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Harden Runner
-        uses: step-security/harden-runner@5ef0c079ce82195b2a36a210272d6b661572d83e # v2.14.2
+        uses: step-security/harden-runner@9af89fc71515a100421586dfdb3dc9c984fbf411 # v2.19.4
         with:
           egress-policy: audit
 
@@ -395,7 +395,7 @@ jobs:
         with:
           submodules: true
       - name: Install Rust toolchain (stable)
-        uses: dtolnay/rust-toolchain@f7ccc83f9ed1e5b9c81d8a67d7ad1a747e22a561 # master
+        uses: dtolnay/rust-toolchain@3c5f7ea28cd621ae0bf5283f0e981fb97b8a7af9 # master
         with:
           toolchain: stable
           components: rustfmt
@@ -409,25 +409,25 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Harden Runner
-        uses: step-security/harden-runner@5ef0c079ce82195b2a36a210272d6b661572d83e # v2.14.2
+        uses: step-security/harden-runner@9af89fc71515a100421586dfdb3dc9c984fbf411 # v2.19.4
         with:
           egress-policy: audit
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-      - uses: EmbarkStudios/cargo-deny-action@3fd3802e88374d3fe9159b834c7714ec57d6c979 # v2.0.15
+      - uses: EmbarkStudios/cargo-deny-action@a531616d8ce3b9177443e48a1159bc945a099823 # v2.0.19
 
   cargo-msrv:
     name: Verify MSRV (cargo-msrv)
     runs-on: ubuntu-latest
     steps:
       - name: Harden Runner
-        uses: step-security/harden-runner@5ef0c079ce82195b2a36a210272d6b661572d83e # v2.14.2
+        uses: step-security/harden-runner@9af89fc71515a100421586dfdb3dc9c984fbf411 # v2.19.4
         with:
           egress-policy: audit
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           submodules: true
       - name: cargo install cargo-msrv
-        uses: baptiste0928/cargo-install@b687c656bda5733207e629b50a22bf68974a0305 # v3.3.2
+        uses: baptiste0928/cargo-install@f204293d9709061b7bc1756fec3ec4e2cd57dec0 # v3.4.0
         with:
           # Name of the crate to install
           crate: cargo-msrv
