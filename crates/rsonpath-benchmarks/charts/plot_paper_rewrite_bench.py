@@ -95,7 +95,7 @@ def plot_grouped_bars_svg(grouped, output, metric):
     values = {
         (id_, variant, idx): value_for(row, metric)
         for id_, variants in grouped.items()
-        for variant in ("paper_original", "auto_candidate", "auto_best", "paper_manual")
+        for variant in ("paper_original", "auto_candidate", "paper_manual")
         for idx, row in enumerate(variants.get(variant, []))
     }
     max_value = max(values.values(), default=1.0)
@@ -133,12 +133,15 @@ def plot_grouped_bars_svg(grouped, output, metric):
         lines.append(f'<line x1="{margin_left}" y1="{y:.2f}" x2="{width - margin_right}" y2="{y:.2f}" stroke="white" stroke-width="3"/>')
         lines.append(f'<text x="{margin_left - 12}" y="{y + 6:.2f}" text-anchor="end" class="small">{value:.2g}</text>')
 
-    legend_x = margin_left
+    legend_step = 380
+    legend_last_item_width = 240
+    legend_total_width = legend_step * (len(present_variants) - 1) + legend_last_item_width
+    legend_x = (width - legend_total_width) // 2
     for variant, label, color in present_variants:
         fill = auto_svg_color(0, 1) if variant == "auto" else svg_colors.get(color, color)
         lines.append(f'<rect x="{legend_x}" y="22" width="36" height="18" fill="{fill}"/>')
         lines.append(f'<text x="{legend_x + 46}" y="39">{label}</text>')
-        legend_x += 260
+        legend_x += legend_step
 
     for group_idx, id_ in enumerate(ids):
         for variant_idx, (variant, _, color) in enumerate(present_variants):
@@ -175,7 +178,7 @@ def present_slots(grouped, ids):
     slots = []
     if any(grouped[id_].get("paper_original") for id_ in ids):
         slots.append(VARIANTS[0])
-    if any(grouped[id_].get("auto_candidate") or grouped[id_].get("auto_best") for id_ in ids):
+    if any(grouped[id_].get("auto_candidate") for id_ in ids):
         slots.append(VARIANTS[1])
     if any(grouped[id_].get("paper_manual") for id_ in ids):
         slots.append(VARIANTS[2])
@@ -188,7 +191,7 @@ def rows_for_slot(variants, slot, metric):
     if slot == "paper_manual":
         return variants.get("paper_manual", [])[:1]
     if slot == "auto":
-        rows = variants.get("auto_candidate") or variants.get("auto_best", [])
+        rows = variants.get("auto_candidate", [])
         return sorted(rows, key=lambda row: value_for(row, metric), reverse=True)
     raise ValueError(slot)
 
@@ -234,7 +237,7 @@ def label_for(metric):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Plot grouped bars from rq-paper-rewrite-bench CSV.")
+    parser = argparse.ArgumentParser(description="Plot grouped bars from rq-rewrite-bench CSV.")
     parser.add_argument("csv", nargs="?", default="target/paper-rewrite-bench.csv")
     parser.add_argument("-o", "--output", default="target/paper-rewrite-bench.png")
     parser.add_argument("--metric", choices=["mean-ms", "throughput", "speedup"], default="throughput")

@@ -86,6 +86,9 @@ fn optimizer_finds_descendant_title_rewrite_under_schema() {
 //     }
 // }
 
-fn example_schema_path() -> String {
-    format!("{}/examples/example_schema.json", env!("CARGO_MANIFEST_DIR"))
+fn example_schema_path() -> std::path::PathBuf {
+    std::path::PathBuf::from(format!(
+        "{}/examples/example_schema.json",
+        env!("CARGO_MANIFEST_DIR")
+    ))
 }

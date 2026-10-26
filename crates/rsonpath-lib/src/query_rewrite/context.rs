@@ -1,4 +1,8 @@
-use std::{collections::HashMap, time::Instant};
+use std::{
+    collections::HashMap,
+    path::{Path, PathBuf},
+    time::Instant,
+};
 
 use serde_json::{from_str, Value};
 use thiserror::Error;
@@ -14,20 +18,21 @@ use crate::{
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum ContextSource {
-    SchemaFile(String),
-    DocumentFile(String),
+    SchemaFile(PathBuf),
+    DocumentFile(PathBuf),
 }
 
 impl ContextSource {
     #[inline]
     #[must_use]
-    pub fn path(&self) -> &str {
+    pub fn path(&self) -> &Path {
         match self {
-            Self::SchemaFile(path) | Self::DocumentFile(path) => path,
+            Self::SchemaFile(path) | Self::DocumentFile(path) => path.as_path(),
         }
     }
 }
 
+#[derive(Clone)]
 pub struct RewriteContext {
     automaton: Automaton,
     source: ContextSource,
@@ -52,8 +57,10 @@ impl ContextCacheStore {
     }
 
     #[inline]
-    pub fn insert(&mut self, source: ContextSource, context: RewriteContext) {
-        self.cache.insert(source, context);
+    pub fn build_and_insert(&mut self, source: ContextSource) -> Result<&RewriteContext, ContextError> {
+        let context = RewriteContext::build(source.clone())?;
+        self.cache.insert(source.clone(), context);
+        Ok(&self.cache[&source])
     }
 }
 
@@ -79,32 +86,27 @@ impl RewriteContext {
     #[inline]
     pub fn build(source: ContextSource) -> Result<Self, ContextError> {
         let file_contents = std::fs::read_to_string(source.path()).map_err(|e| ContextError::Read {
-            path: source.path().to_string(),
+            path: source.path().display().to_string(),
             source: e,
         })?;
         let value: Value = from_str(&file_contents).map_err(|e| ContextError::Json {
-            path: source.path().to_string(),
+            path: source.path().display().to_string(),
             source: e,
         })?;
 
         drop(file_contents);
 
-        match source {
+        let automaton = match &source {
             ContextSource::SchemaFile(_) => {
-                let schema = json_schema_parser::parse_json_schema(&value).map_err(|e| ContextError::Schema {
-                    path: source.path().to_string(),
+                json_schema_parser::parse_json_schema(&value).map_err(|e| ContextError::Schema {
+                    path: source.path().display().to_string(),
                     error: e,
-                })?;
-                Ok(Self {
-                    automaton: schema,
-                    source,
-                })
+                })?
             }
-            ContextSource::DocumentFile(_) => Ok(Self {
-                automaton: build_context_from_value(&value),
-                source,
-            }),
-        }
+            ContextSource::DocumentFile(_) => build_context_from_value(&value),
+        };
+
+        Ok(Self { automaton, source })
     }
 
     #[inline]

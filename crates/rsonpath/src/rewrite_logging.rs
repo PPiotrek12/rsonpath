@@ -3,24 +3,42 @@ use log::LevelFilter;
 use rsonpath_lib::query_rewrite;
 use simple_logger::SimpleLogger;
 
-/// `log` target for rewrite CLI wrappers in [`crate::rewrite_tooling`].
-pub const TOOLING_LOG_TARGET: &str = concat!("rsonpath_lib::query_rewrite", "::tooling");
-
-/// Initialize logging for rewrite tooling binaries (`-v` / `-vv`).
+/// Initialize logging for rewrite binaries (`-v` / `-vv`).
 ///
 /// Global level stays at `Warn`; verbose flags only raise verbosity under
-/// [`query_rewrite::LOG_TARGET`] (library pipeline + tooling wrappers).
+/// [`query_rewrite::LOG_TARGET`].
 pub fn init(verbose: u8) -> Result<()> {
+    logger(verbose, None)
+        .init()
+        .wrap_err("Logger configuration error.")
+}
+
+/// Like [`init`], but always enables `Info` on `binary_module`.
+///
+/// Untargeted `log::info!` in that binary is visible without `-v`.
+/// `-v` / `-vv` raise the binary together with the rewrite pipeline.
+pub fn init_for_binary(verbose: u8, binary_module: &str) -> Result<()> {
+    logger(verbose, Some(binary_module))
+        .init()
+        .wrap_err("Logger configuration error.")
+}
+
+fn logger(verbose: u8, binary_module: Option<&str>) -> SimpleLogger {
     let mut logger = SimpleLogger::new().with_level(LevelFilter::Warn);
 
-    if verbose > 0 {
-        let rewrite_level = if verbose == 1 {
-            LevelFilter::Debug
-        } else {
-            LevelFilter::Trace
-        };
-        logger = logger.with_module_level(query_rewrite::LOG_TARGET, rewrite_level);
+    let verbose_level = match verbose {
+        0 => None,
+        1 => Some(LevelFilter::Debug),
+        _ => Some(LevelFilter::Trace),
+    };
+
+    if let Some(module) = binary_module {
+        logger = logger.with_module_level(module, verbose_level.unwrap_or(LevelFilter::Info));
     }
 
-    logger.init().wrap_err("Logger configuration error.")
+    if let Some(level) = verbose_level {
+        logger = logger.with_module_level(query_rewrite::LOG_TARGET, level);
+    }
+
+    logger
 }

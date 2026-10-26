@@ -1,0 +1,87 @@
+{
+  "name": "paper-table-4",
+  "data_dir": "crates/rsonpath-benchmarks/data",
+  "iterations": 20,
+  "warmup": 1,
+  "cases": [
+    {
+      "id": "B1",
+      "dataset": "bestbuy",
+      "document": "pison/bestbuy_large_record.json",
+      "query": "$.products[*].categoryPath[*].id",
+      "manual": ["$..categoryPath..id"]
+    },
+    {
+      "id": "B2",
+      "dataset": "bestbuy",
+      "document": "pison/bestbuy_large_record.json",
+      "query": "$.products[*].videoChapters[*].chapter",
+      "manual": ["$..videoChapters..chapter"]
+    },
+    {
+      "id": "B3",
+      "dataset": "bestbuy",
+      "document": "pison/bestbuy_large_record.json",
+      "query": "$.products[*].videoChapters",
+      "manual": ["$..videoChapters"]
+    },
+    {
+      "id": "G1",
+      "dataset": "google_map",
+      "document": "pison/google_map_large_record.json",
+      "query": "$[*].routes[*].legs[*].steps[*].distance.text"
+    },
+    {
+      "id": "G2",
+      "dataset": "google_map",
+      "document": "pison/google_map_large_record.json",
+      "query": "$[*].available_travel_modes",
+      "manual": ["$..available_travel_modes"]
+    },
+    {
+      "id": "N1",
+      "dataset": "nspl",
+      "document": "pison/nspl_large_record.json",
+      "query": "$.meta.view.columns[*].name"
+    },
+    {
+      "id": "N2",
+      "dataset": "nspl",
+      "document": "pison/nspl_large_record.json",
+      "query": "$.data[*][*][*]"
+    },
+    {
+      "id": "T1",
+      "dataset": "twitter",
+      "document": "pison/twitter_large_record.json",
+      "query": "$[*].entities.urls[*].url"
+    },
+    {
+      "id": "T2",
+      "dataset": "twitter",
+      "document": "pison/twitter_large_record.json",
+      "query": "$[*].text"
+    },
+    {
+      "id": "W1",
+      "dataset": "walmart",
+      "document": "pison/walmart_large_record.json",
+      "query": "$.items[*].bestMarketplacePrice.price",
+      "manual": ["$..bestMarketplacePrice.price"]
+    },
+    {
+      "id": "W2",
+      "dataset": "walmart",
+      "document": "pison/walmart_large_record.json",
+      "query": "$.items[*].name",
+      "manual": ["$..name"]
+    },
+    {
+      "id": "Wi",
+      "dataset": "wikidata",
+      "document": "pison/wiki_large_record.json",
+      "query": "$[*].claims.P150[*].mainsnak.property",
+      "manual": ["$..P150..mainsnak.property"]
+    }
+  ]
+}

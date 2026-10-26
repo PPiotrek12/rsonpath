@@ -30,18 +30,13 @@ name = "rq-rewrite"
 
 [[bin]]
 bench = false
-path = "./src/bin/rq_rewrite_validate.rs"
-name = "rq-rewrite-validate"
+path = "./src/bin/rq_rewrite_single.rs"
+name = "rq-rewrite-single"
 
 [[bin]]
 bench = false
-path = "./src/bin/rq_rewrite_best.rs"
-name = "rq-rewrite-best"
-
-[[bin]]
-bench = false
-path = "./src/bin/rq_paper_rewrite_bench.rs"
-name = "rq-paper-rewrite-bench"
+path = "./src/bin/rq_rewrite_bench.rs"
+name = "rq-rewrite-bench"
 
 [dependencies]
 clap = { version = "4.6.1", features = ["derive", "wrap_help"] }
@@ -50,6 +45,7 @@ eyre = "0.6.12"
 log = { workspace = true }
 rsonpath-lib = { workspace = true }
 rsonpath-syntax = { workspace = true, features = ["color"] }
+serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 simple_logger = "5.2.0"
 

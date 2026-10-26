@@ -1,37 +1,17 @@
 use crate::{
-    engine::{Compiler as _, Engine as _, RsonpathEngine}, input::OwnedBytes, query_rewrite::{ContextSource, PrefixToDescendantGenerator, QueryRewriteError, QueryRewritePipeline, RewriteContext, context::ContextError},
+    automaton::error::CompilerError,
+    engine::{error::EngineError, Compiler as _, Engine as _, RsonpathEngine},
+    input::OwnedBytes,
+    result::MatchCount,
 };
 use rsonpath_syntax::JsonPathQuery;
-use std::{fs, time::Instant};
+use std::{num::NonZeroUsize, time::Instant};
 use thiserror::Error;
 
 const LOG_TARGET: &str = "rsonpath_lib::query_rewrite::benchmark";
 
-#[derive(Debug)]
-pub struct RewriteBenchmarkConfig {
+pub struct BenchResult {
     pub query: String,
-    pub schema_file: Option<String>,
-    pub no_schema: bool,
-    pub document_file: String,
-    pub iterations: usize,
-    pub warmup: usize,
-}
-
-#[derive(Debug)]
-pub struct FixedQueryBenchmarkConfig {
-    pub baseline_query: String,
-    pub query: String,
-    pub role: &'static str,
-    pub document_file: String,
-    pub iterations: usize,
-    pub warmup: usize,
-}
-
-#[derive(Clone, Debug)]
-pub struct BenchmarkRow {
-    pub query: String,
-    pub role: &'static str,
-    pub query_len: usize,
     pub match_count: usize,
     pub matches_baseline: bool,
     pub compile_ns: u128,
@@ -39,182 +19,112 @@ pub struct BenchmarkRow {
     pub throughput_bytes_per_s: f64,
 }
 
-#[derive(Debug, Clone)]
-pub struct RewriteBenchmarkReport {
-    pub rows: Vec<BenchmarkRow>,
-    pub generated_candidates: usize,
+/// Outcome of measuring a single query. A candidate that fails to compile or run is
+/// recorded rather than aborting the whole measurement, so that a generator emitting
+/// unsupported queries stays visible in the results instead of killing a suite run.
+pub enum Outcome {
+    Measured(BenchResult),
+    Failed { query: String, error: BenchError },
 }
 
-#[derive(Debug, Clone)]
-pub struct BestRewriteSelection {
-    pub query: String,
-    pub row: BenchmarkRow,
-    pub report: RewriteBenchmarkReport,
+#[derive(Error, Debug)]
+pub enum BenchError {
+    #[error("failed to compile query {query}: {source}")]
+    Compile { query: String, source: CompilerError },
+    #[error("failed to execute query {query}: {source}")]
+    Execute { query: String, source: EngineError },
+    #[error("query {query} returned inconsistent counts: count() = {count}, indices() = {indices}")]
+    InconsistentCount {
+        query: String,
+        count: MatchCount,
+        indices: usize,
+    },
 }
 
-struct BenchmarkDetails {
-    row: BenchmarkRow,
-    match_indices: Vec<usize>,
-}
-
-pub fn run_benchmark(config: &RewriteBenchmarkConfig) -> Result<RewriteBenchmarkReport, RewriteBenchmarkError> {
-    if config.iterations == 0 {
-        return Err(RewriteBenchmarkError::ZeroIterations);
-    }
-
-    if !config.no_schema && config.schema_file.is_none() {
-        return Err(RewriteBenchmarkError::MissingSchema);
-    }
-
-    let baseline_query = rsonpath_syntax::parse(&config.query)?;
-
-    let context_source = if config.no_schema {
-        ContextSource::DocumentFile(config.document_file.clone())
-    } else {
-        ContextSource::SchemaFile(config.schema_file.clone().unwrap())
+/// Measures every query against the same input. Index 0 is the baseline; the rest are
+/// validated by exact match-index equality against it.
+///
+/// The returned vector is aligned 1:1 with `queries` and in the same order, so callers can
+/// map their own labels onto it by index. Index 0 is always [`Outcome::Measured`] — a
+/// baseline that fails to compile or run leaves the case with no reference to validate
+/// against and no denominator for speedup, so it aborts instead.
+#[inline]
+pub fn measure(
+    document: Vec<u8>,
+    queries: &[JsonPathQuery],
+    iterations: NonZeroUsize,
+    warmup: usize,
+) -> Result<Vec<Outcome>, BenchError> {
+    let Some((baseline_query, candidates)) = queries.split_first() else {
+        return Ok(Vec::new());
     };
-    
-    let generator = PrefixToDescendantGenerator;
-    let context = RewriteContext::build(context_source.clone())?;
-    let pipeline = QueryRewritePipeline::new(vec![&generator], &context);
-    let generated = pipeline.optimize_query(&baseline_query).map_err(|e| RewriteBenchmarkError::QueryRewrite(e))?;
-    
-    let generator_len = generated.len();
-    let document = fs::read(&config.document_file)?;
-    let document_size_bytes = document.len();
+
+    let input_len = document.len();
     let input = OwnedBytes::new(document);
 
-    log::debug!(target: LOG_TARGET, "Benchmarking baseline query: {}", baseline_query.to_string());
-    let baseline = benchmark_query(
-        &baseline_query,
-        "original",
-        &input,
-        config.iterations,
-        config.warmup,
-        document_size_bytes,
-        None,
-    )?;
-    let expected_indices = baseline.match_indices.clone();
+    let (baseline, match_indices) = benchmark_query(baseline_query, &input, iterations, warmup, input_len, None)?;
 
-    let mut rows = Vec::with_capacity(generated.len() + 1);
-    rows.push(baseline.row);
+    let mut outcomes = Vec::with_capacity(queries.len());
+    outcomes.push(Outcome::Measured(baseline));
 
-    for candidate in generated {
-        log::debug!(target: LOG_TARGET, "Benchmarking candidate query: {}", candidate.to_string());
-        if candidate == baseline_query {
-            continue;
+    for query in candidates {
+        match benchmark_query(query, &input, iterations, warmup, input_len, Some(&match_indices)) {
+            Ok((result, _)) => outcomes.push(Outcome::Measured(result)),
+            Err(error) => {
+                log::warn!(target: LOG_TARGET, "skipping candidate: {error}");
+                outcomes.push(Outcome::Failed {
+                    query: query.to_string(),
+                    error,
+                });
+            }
         }
-
-        let details = benchmark_query(
-            &candidate,
-            "rewrite",
-            &input,
-            config.iterations,
-            config.warmup,
-            document_size_bytes,
-            Some(&expected_indices),
-        )?;
-        rows.push(details.row);
     }
 
-    let (baseline_row, mut rewrites): (Vec<_>, Vec<_>) = rows.into_iter().partition(|row| row.role == "original");
-    rewrites.sort_by(|left, right| right.throughput_bytes_per_s.total_cmp(&left.throughput_bytes_per_s));
-
-    let mut ordered = baseline_row;
-    ordered.extend(rewrites);
-    Ok(RewriteBenchmarkReport {
-        rows: ordered,
-        generated_candidates: generator_len,
-    })
+    Ok(outcomes)
 }
 
-pub fn best_equivalent_row(report: &RewriteBenchmarkReport) -> Option<&BenchmarkRow> {
-    report
-        .rows
-        .iter()
-        .filter(|row| row.matches_baseline)
-        .max_by(|left, right| left.throughput_bytes_per_s.total_cmp(&right.throughput_bytes_per_s))
-}
 
-pub fn select_best_rewrite(config: &RewriteBenchmarkConfig) -> Result<BestRewriteSelection, RewriteBenchmarkError> {
-    let report = run_benchmark(config)?;
-    let row = best_equivalent_row(&report)
-        .cloned()
-        .ok_or(RewriteBenchmarkError::NoEquivalentQuery)?;
-
-    Ok(BestRewriteSelection {
-        query: row.query.clone(),
-        row,
-        report,
-    })
-}
-
-pub fn benchmark_fixed_query(config: &FixedQueryBenchmarkConfig) -> Result<BenchmarkRow, RewriteBenchmarkError> {
-    if config.iterations == 0 {
-        return Err(RewriteBenchmarkError::ZeroIterations);
-    }
-
-    let baseline_query = rsonpath_syntax::parse(&config.baseline_query)?;
-    let query = rsonpath_syntax::parse(&config.query)?;
-    let document = fs::read(&config.document_file)?;
-    let document_size_bytes = document.len();
-    let input = OwnedBytes::new(document);
-
-    let baseline = benchmark_query(
-        &baseline_query,
-        "baseline",
-        &input,
-        config.iterations,
-        config.warmup,
-        document_size_bytes,
-        None,
-    )?;
-    let details = benchmark_query(
-        &query,
-        config.role,
-        &input,
-        config.iterations,
-        config.warmup,
-        document_size_bytes,
-        Some(&baseline.match_indices),
-    )?;
-
-    Ok(details.row)
-}
-
+/// Returns the measurement together with the match indices it produced; the caller keeps
+/// the baseline's indices to validate later queries against and drops the rest.
 fn benchmark_query(
     query: &JsonPathQuery,
-    role: &'static str,
     input: &OwnedBytes<Vec<u8>>,
-    iterations: usize,
+    iterations: NonZeroUsize,
     warmup: usize,
     document_size_bytes: usize,
     expected_indices: Option<&[usize]>,
-) -> Result<BenchmarkDetails, RewriteBenchmarkError> {
+) -> Result<(BenchResult, Vec<usize>), BenchError> {
     let query_string = query.to_string();
+    let execute_error = |source| BenchError::Execute {
+        query: query_string.clone(),
+        source,
+    };
 
     let compile_start = Instant::now();
-    let engine = RsonpathEngine::compile_query(query)?;
+    let engine = RsonpathEngine::compile_query(query).map_err(|source| BenchError::Compile {
+        query: query_string.clone(),
+        source,
+    })?;
     let compile_ns = compile_start.elapsed().as_nanos();
 
     let mut indices = Vec::new();
-    engine.indices(input, &mut indices)?;
+    engine.indices(input, &mut indices).map_err(execute_error)?;
 
     let matches_baseline = expected_indices.is_none_or(|expected| expected == indices.as_slice());
 
     for _ in 0..warmup {
-        engine.count(input)?;
+        engine.count(input).map_err(execute_error)?;
     }
 
     let mut total_ns = 0_u128;
 
-    for _ in 0..iterations {
+    for _ in 0..iterations.get() {
         let start = Instant::now();
-        let count = engine.count(input)?;
+        let count = engine.count(input).map_err(execute_error)?;
         let elapsed = start.elapsed().as_nanos();
 
         if usize::try_from(count).ok() != Some(indices.len()) {
-            return Err(RewriteBenchmarkError::InconsistentCount {
+            return Err(BenchError::InconsistentCount {
                 query: query_string,
                 count,
                 indices: indices.len(),
@@ -224,49 +134,19 @@ fn benchmark_query(
         total_ns += elapsed;
     }
 
-    let exec_mean_ns = total_ns / iterations as u128;
+    let exec_mean_ns = total_ns / iterations.get() as u128;
     let exec_mean_s = exec_mean_ns as f64 / 1_000_000_000.0;
     let throughput_bytes_per_s = document_size_bytes as f64 / exec_mean_s;
 
-    Ok(BenchmarkDetails {
-        row: BenchmarkRow {
-            query: query_string.clone(),
-            role,
-            query_len: query_string.len(),
+    Ok((
+        BenchResult {
+            query: query_string,
             match_count: indices.len(),
             matches_baseline,
             compile_ns,
             exec_mean_ns,
             throughput_bytes_per_s,
         },
-        match_indices: indices,
-    })
-}
-
-#[derive(Error, Debug)]
-pub enum RewriteBenchmarkError {
-    #[error("--iterations must be greater than 0")]
-    ZeroIterations,
-    #[error("--schema-file is required unless --no-schema is set")]
-    MissingSchema,
-    #[error("no query matched the baseline result")]
-    NoEquivalentQuery,
-    #[error("failed to parse query: {0}")]
-    QueryParse(#[from] rsonpath_syntax::error::ParseError),
-    #[error("failed to generate rewrite candidates: {0}")]
-    QueryRewrite(#[from] QueryRewriteError),
-    #[error("failed to read JSON document: {0}")]
-    DocumentRead(#[from] std::io::Error),
-    #[error("rsonpath engine error: {0}")]
-    Engine(#[from] crate::engine::error::EngineError),
-    #[error("rsonpath compiler error: {0}")]
-    Compiler(#[from] crate::automaton::error::CompilerError),
-    #[error("failed to build context: {0}")]
-    ContextBuild(#[from] ContextError),
-    #[error("query {query} returned inconsistent counts: count() = {count}, indices() = {indices}")]
-    InconsistentCount {
-        query: String,
-        count: crate::result::MatchCount,
-        indices: usize,
-    },
+        indices,
+    ))
 }

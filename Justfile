@@ -52,24 +52,20 @@ build-bin profile="dev": (build-lib profile)
 build-rewrite-bin profile="dev": (build-lib profile)
     cargo build --bin rq-rewrite --profile {{profile}}
 
-# Build the rq-rewrite-validate binary.
-build-rewrite-validate-bin profile="dev": (build-lib profile)
-    cargo build --bin rq-rewrite-validate --profile {{profile}}
+# Build the rq-rewrite-single binary.
+build-rewrite-single-bin profile="dev": (build-lib profile)
+    cargo build --bin rq-rewrite-single --profile {{profile}}
 
-# Build the rq-rewrite-best binary.
-build-rewrite-best-bin profile="dev": (build-lib profile)
-    cargo build --bin rq-rewrite-best --profile {{profile}}
-
-# Build the paper rewrite benchmark binary.
-build-paper-rewrite-bench-bin profile="dev": (build-lib profile)
-    cargo build --bin rq-paper-rewrite-bench --profile {{profile}}
+# Build the JSON-suite rewrite benchmark binary.
+build-rewrite-bench-bin profile="dev": (build-lib profile)
+    cargo build --bin rq-rewrite-bench --profile {{profile}}
 
 # Build the rsonpath-lib library.
 build-lib profile="dev":
     cargo build --package rsonpath-lib --profile {{profile}}
 
 # Build all rsonpath parts, both binaries and the library.
-build-all profile="dev": (build-lib profile) (build-bin profile) (build-rewrite-bin profile) (build-rewrite-validate-bin profile) (build-rewrite-best-bin profile) (build-paper-rewrite-bench-bin profile) (gen-tests)
+build-all profile="dev": (build-lib profile) (build-bin profile) (build-rewrite-bin profile) (build-rewrite-single-bin profile) (build-rewrite-bench-bin profile) (gen-tests)
 
 # Build and open the library documentation.
 doc $RUSTDOCFLAGS="--cfg docsrs":
@@ -103,35 +99,25 @@ run-rewrite-debug *ARGS: (build-rewrite-bin "dev")
 run-rewrite *ARGS: (build-rewrite-bin "release")
     ./target/release/rq-rewrite {{ARGS}}
 
-# Run the rewrite validator CLI in debug profile.
+# Run the single-query rewrite CLI in debug profile.
 [no-exit-message]
-run-rewrite-validate-debug *ARGS: (build-rewrite-validate-bin "dev")
-    ./target/debug/rq-rewrite-validate {{ARGS}}
+run-rewrite-single-debug *ARGS: (build-rewrite-single-bin "dev")
+    ./target/debug/rq-rewrite-single {{ARGS}}
 
-# Run the rewrite validator CLI in release profile.
+# Run the single-query rewrite CLI in release profile.
 [no-exit-message]
-run-rewrite-validate *ARGS: (build-rewrite-validate-bin "release")
-    ./target/release/rq-rewrite-validate {{ARGS}}
+run-rewrite-single *ARGS: (build-rewrite-single-bin "release")
+    ./target/release/rq-rewrite-single {{ARGS}}
 
-# Run the rewrite best-candidate selector in debug profile.
+# Run the JSON-suite rewrite benchmark in debug profile.
 [no-exit-message]
-run-rewrite-best-debug *ARGS: (build-rewrite-best-bin "dev")
-    ./target/debug/rq-rewrite-best {{ARGS}}
+run-rewrite-bench-debug *ARGS: (build-rewrite-bench-bin "dev")
+    ./target/debug/rq-rewrite-bench {{ARGS}}
 
-# Run the rewrite best-candidate selector in release profile.
+# Run the JSON-suite rewrite benchmark in release profile.
 [no-exit-message]
-run-rewrite-best *ARGS: (build-rewrite-best-bin "release")
-    ./target/release/rq-rewrite-best {{ARGS}}
-
-# Run the paper rewrite benchmark in debug profile.
-[no-exit-message]
-run-paper-rewrite-bench-debug *ARGS: (build-paper-rewrite-bench-bin "dev")
-    ./target/debug/rq-paper-rewrite-bench {{ARGS}}
-
-# Run the paper rewrite benchmark in release profile.
-[no-exit-message]
-run-paper-rewrite-bench *ARGS: (build-paper-rewrite-bench-bin "release")
-    ./target/release/rq-paper-rewrite-bench {{ARGS}}
+run-rewrite-bench *ARGS: (build-rewrite-bench-bin "release")
+    ./target/release/rq-rewrite-bench {{ARGS}}
 
 # Plot the paper rewrite benchmark CSV.
 [no-exit-message]

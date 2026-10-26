@@ -1,7 +1,8 @@
 use clap::{ArgGroup, Parser};
 use color_eyre::eyre::Result;
-use rsonpath_syntax::JsonPathQuery;
 use rsonpath_lib::query_rewrite::{ContextSource, PrefixToDescendantGenerator, QueryRewritePipeline, RewriteContext};
+use rsonpath_syntax::JsonPathQuery;
+use std::path::PathBuf;
 
 #[derive(Parser, Debug)]
 #[clap(name = "rq-rewrite", author, version, about)]
@@ -16,11 +17,11 @@ struct Args {
     query: String,
     /// Path to the JSON document used as the rewrite context.
     #[clap(short, long)]
-    document_file: Option<String>,
+    document_file: Option<PathBuf>,
 
     /// Path to the JSON schema file describing valid documents.
     #[clap(short, long)]
-    schema_file: Option<String>,
+    schema_file: Option<PathBuf>,
 }
 
 fn main() -> Result<()> {
@@ -47,8 +48,8 @@ fn main() -> Result<()> {
 
 fn render_text(query: &str, context: &ContextSource, rewritten: &[JsonPathQuery]) -> String {
     let context_str = match context {
-        ContextSource::SchemaFile(path) => format!("schema file: {path}"),
-        ContextSource::DocumentFile(path) => format!("document file: {path}"),
+        ContextSource::SchemaFile(path) => format!("schema file: {}", path.display()),
+        ContextSource::DocumentFile(path) => format!("document file: {}", path.display()),
     };
     let mut output = format!(
         "Input query: {query}\nContext file: {context_str}\nEquivalent rewrites: {}",
