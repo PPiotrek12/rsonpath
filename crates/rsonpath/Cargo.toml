@@ -50,6 +50,7 @@ eyre = "0.6.12"
 log = { workspace = true }
 rsonpath-lib = { workspace = true }
 rsonpath-syntax = { workspace = true, features = ["color"] }
+serde_json = { workspace = true }
 simple_logger = "5.2.0"
 
 [build-dependencies]

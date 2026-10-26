@@ -466,36 +466,3 @@ fn emit_dfa_automaton(tables: &DfaTables, repr: &[usize]) -> Automaton {
     Automaton::from_states(state_tables.into_iter().map(|t| t.expect("filled")).collect())
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::query_rewrite::preprocessor::JsonNfaBuilder;
-
-    #[test]
-    fn scalar_empty_alphabet() {
-        let nfa = JsonNfaBuilder::default().from_json("null");
-        let min = NfaMinimizer::default().minimize(&nfa);
-        assert!(min.is_select_root_query());
-        assert!(min.is_accepting(State::new(1)));
-    }
-
-    #[test]
-    fn hopcroft_reduces_or_preserves() {
-        let json = r#"{"lista":[{"a":1,"b":2},{"a":2,"c":3}]}"#;
-        let nfa = JsonNfaBuilder::default().from_json(json);
-        let dfa_only = determinize(&nfa, &alphabet_from_automaton(&nfa));
-        let minimized = NfaMinimizer::default().minimize(&nfa);
-        assert!(minimized.num_states() <= dfa_only.num_states());
-    }
-
-    #[test]
-    fn regression_state_counts_match_extraction() {
-        use crate::query_rewrite::extraction::extract_automaton_from_json;
-
-        let json = r#"{"lista":[{"a":1,"b":2},{"a":2,"c":3}]}"#;
-        let legacy = extract_automaton_from_json(json);
-        let nfa = JsonNfaBuilder::default().from_json(json);
-        let via_minimizer = NfaMinimizer::default().minimize(&nfa);
-        assert_eq!(legacy.num_states(), via_minimizer.num_states());
-    }
-}

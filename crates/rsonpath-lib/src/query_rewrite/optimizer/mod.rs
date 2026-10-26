@@ -4,10 +4,7 @@ mod pipeline;
 
 pub use error::QueryRewriteError;
 pub use generators::{PrefixToDescendantGenerator, QueryCandidateGenerator};
-pub use pipeline::{
-    optimize_query, optimize_query_with_generators, optimize_query_with_schema, optimize_query_with_schema_file,
-    optimize_query_without_schema_file, QueryRewritePipeline,
-};
+pub use pipeline::QueryRewritePipeline;
 
 #[cfg(test)]
 mod tests;

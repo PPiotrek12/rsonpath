@@ -1,6 +1,5 @@
 use std::{
     collections::HashMap,
-    fs,
     hash::{DefaultHasher, Hash, Hasher as _},
 };
 
@@ -9,7 +8,7 @@ use crate::{
     automaton::{ArrayTransition, Automaton, MemberTransition, State, StateAttributes, StateTable},
     query_rewrite::helpers::new_dumpster_state,
 };
-use serde_json::{from_str, Value};
+use serde_json::Value;
 use smallvec::SmallVec;
 
 const LOG_TARGET: &str = concat!("rsonpath_lib::query_rewrite", "::preprocessor");
@@ -76,18 +75,6 @@ impl JsonNfaBuilder {
             nfa_state_count: inner.states.len(),
         };
         (inner.build_automaton(root_hash), metrics)
-    }
-
-    #[must_use]
-    pub fn from_json(&self, json: &str) -> Automaton {
-        let value: Value = from_str(json).expect("Invalid Json Provided");
-        self.from_value(&value)
-    }
-
-    #[must_use]
-    pub fn from_file(&self, path: &str) -> Automaton {
-        let json = fs::read_to_string(path).expect("Error during file reading");
-        self.from_json(&json)
     }
 }
 

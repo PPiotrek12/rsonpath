@@ -1,7 +1,5 @@
 use crate::{
-    engine::{Compiler as _, Engine as _, RsonpathEngine},
-    input::OwnedBytes,
-    query_rewrite::{optimize_query_with_schema_file, optimize_query_without_schema_file, QueryRewriteError},
+    engine::{Compiler as _, Engine as _, RsonpathEngine}, input::OwnedBytes, query_rewrite::{ContextSource, PrefixToDescendantGenerator, QueryRewriteError, QueryRewritePipeline, RewriteContext, context::ContextError},
 };
 use rsonpath_syntax::JsonPathQuery;
 use std::{fs, time::Instant};
@@ -69,12 +67,19 @@ pub fn run_benchmark(config: &RewriteBenchmarkConfig) -> Result<RewriteBenchmark
     }
 
     let baseline_query = rsonpath_syntax::parse(&config.query)?;
-    let candidates = if let Some(schema) = &config.schema_file {
-        optimize_query_with_schema_file(&config.query, schema)?
+
+    let context_source = if config.no_schema {
+        ContextSource::DocumentFile(config.document_file.clone())
     } else {
-        optimize_query_without_schema_file(&config.query, &config.document_file)?
+        ContextSource::SchemaFile(config.schema_file.clone().unwrap())
     };
-    let generated_candidates = candidates.len();
+    
+    let generator = PrefixToDescendantGenerator;
+    let context = RewriteContext::build(context_source.clone())?;
+    let pipeline = QueryRewritePipeline::new(vec![&generator], &context);
+    let generated = pipeline.optimize_query(&baseline_query).map_err(|e| RewriteBenchmarkError::QueryRewrite(e))?;
+    
+    let generator_len = generated.len();
     let document = fs::read(&config.document_file)?;
     let document_size_bytes = document.len();
     let input = OwnedBytes::new(document);
@@ -91,10 +96,10 @@ pub fn run_benchmark(config: &RewriteBenchmarkConfig) -> Result<RewriteBenchmark
     )?;
     let expected_indices = baseline.match_indices.clone();
 
-    let mut rows = Vec::with_capacity(candidates.len() + 1);
+    let mut rows = Vec::with_capacity(generated.len() + 1);
     rows.push(baseline.row);
 
-    for candidate in candidates {
+    for candidate in generated {
         log::debug!(target: LOG_TARGET, "Benchmarking candidate query: {}", candidate.to_string());
         if candidate == baseline_query {
             continue;
@@ -119,7 +124,7 @@ pub fn run_benchmark(config: &RewriteBenchmarkConfig) -> Result<RewriteBenchmark
     ordered.extend(rewrites);
     Ok(RewriteBenchmarkReport {
         rows: ordered,
-        generated_candidates,
+        generated_candidates: generator_len,
     })
 }
 
@@ -256,6 +261,8 @@ pub enum RewriteBenchmarkError {
     Engine(#[from] crate::engine::error::EngineError),
     #[error("rsonpath compiler error: {0}")]
     Compiler(#[from] crate::automaton::error::CompilerError),
+    #[error("failed to build context: {0}")]
+    ContextBuild(#[from] ContextError),
     #[error("query {query} returned inconsistent counts: count() = {count}, indices() = {indices}")]
     InconsistentCount {
         query: String,
